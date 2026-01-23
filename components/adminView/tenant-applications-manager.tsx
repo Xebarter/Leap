@@ -652,7 +652,3 @@ function ApplicationDetailsDialog({ application, open, onOpenChange, onDownload,
     </Dialog>
   )
 }
-
-function Label({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={className}>{children}</div>
-}
