@@ -53,13 +53,41 @@ export function DocumentUploadForm({ onSubmit }: { onSubmit?: (data: any) => voi
     setLoading(true)
 
     try {
-      // TODO: Upload file and submit form
-      console.log("Document Upload:", { ...formData, file: uploadedFile })
-      
-      if (onSubmit) {
-        onSubmit({ ...formData, file: uploadedFile })
+      if (!uploadedFile) {
+        alert("Please select a file to upload")
+        return
       }
 
+      // Create form data for upload
+      const uploadFormData = new FormData()
+      uploadFormData.append("file", uploadedFile)
+      uploadFormData.append("document_type", formData.document_type)
+      uploadFormData.append("document_name", formData.document_name)
+      if (formData.expiry_date) {
+        uploadFormData.append("expiry_date", formData.expiry_date)
+      }
+
+      // Upload document
+      const response = await fetch("/api/tenant/documents", {
+        method: "POST",
+        body: uploadFormData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload document")
+      }
+
+      // Show success message
+      alert("Document uploaded successfully! It will be reviewed by an administrator.")
+      
+      // Call parent callback if provided
+      if (onSubmit) {
+        onSubmit(data.document)
+      }
+
+      // Reset form
       setUploadedFile(null)
       setFormData({
         document_type: "National ID",
@@ -67,8 +95,12 @@ export function DocumentUploadForm({ onSubmit }: { onSubmit?: (data: any) => voi
         expiry_date: "",
       })
       setOpen(false)
-    } catch (error) {
+      
+      // Reload page to show new document
+      window.location.reload()
+    } catch (error: any) {
       console.error("Error uploading document:", error)
+      alert(`Error: ${error.message || "Failed to upload document"}`)
     } finally {
       setLoading(false)
     }

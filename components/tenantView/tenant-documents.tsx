@@ -10,6 +10,61 @@ import { FileText, Download, Trash2, CheckCircle2, Clock, AlertCircle, Filter, S
 import { Input } from "@/components/ui/input"
 
 export function TenantDocuments({ documents }: { documents: any[] }) {
+  const [isWorking, setIsWorking] = useState<string | null>(null)
+
+  const getSignedUrl = async (documentId: string) => {
+    try {
+      setIsWorking(documentId)
+      const res = await fetch(`/api/tenant/documents/${documentId}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to generate link')
+      return data.signedUrl as string
+    } finally {
+      setIsWorking(null)
+    }
+  }
+
+  const handleView = async (documentId: string) => {
+    try {
+      const url = await getSignedUrl(documentId)
+      if (url) window.open(url, '_blank')
+    } catch (e: any) {
+      alert(`Error: ${e.message || 'Failed to open document'}`)
+    }
+  }
+
+  const handleDownload = async (documentId: string, filename: string) => {
+    try {
+      const url = await getSignedUrl(documentId)
+      if (url) {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message || 'Failed to download document'}`)
+    }
+  }
+
+  const handleDelete = async (documentId: string) => {
+    const confirmed = confirm('Are you sure you want to delete this document?')
+    if (!confirmed) return
+    try {
+      setIsWorking(documentId)
+      const res = await fetch(`/api/tenant/documents?id=${documentId}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to delete document')
+      // Refresh page after delete
+      window.location.reload()
+    } catch (e: any) {
+      alert(`Error: ${e.message || 'Failed to delete document'}`)
+    } finally {
+      setIsWorking(null)
+    }
+  }
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const getStatusIcon = (status: string) => {
@@ -221,19 +276,33 @@ export function TenantDocuments({ documents }: { documents: any[] }) {
 
                   {/* Actions */}
                   <div className="flex gap-2 mt-4">
-                    <Button variant="outline" size="sm" className="flex-1 text-xs hover:bg-primary hover:text-primary-foreground transition-colors">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 text-xs hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => handleView(doc.id)}
+                      disabled={isWorking === doc.id}
+                    >
                       <Eye className="w-3 h-3 mr-1" />
-                      View
+                      {isWorking === doc.id ? 'Opening...' : 'View'}
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 text-xs hover:bg-blue-500 hover:text-white transition-colors">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 text-xs hover:bg-blue-500 hover:text-white transition-colors"
+                      onClick={() => handleDownload(doc.id, doc.document_name)}
+                      disabled={isWorking === doc.id}
+                    >
                       <Download className="w-3 h-3 mr-1" />
-                      Download
+                      {isWorking === doc.id ? 'Downloading...' : 'Download'}
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       title="Delete document"
+                      onClick={() => handleDelete(doc.id)}
+                      disabled={isWorking === doc.id}
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>

@@ -540,9 +540,35 @@ export function PropertyManager({
                 </button>
                 <button
                   onClick={() => {
-                    setShowPropertyTypeSelector(false);
+                    // Redirect to hostel creation page
+                    window.location.href = '/admin/properties/apartment/new?type=hostel';
                   }}
                   className="border-2 rounded-lg p-6 hover:border-primary transition-colors text-left"
+                >
+                  <Building2 className="h-8 w-8 text-purple-600 mb-3" />
+                  <h3 className="font-semibold mb-2">Hostel Building</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure multiple floors and unit types for hostel accommodation.
+                  </p>
+                </button>
+                <button
+                  onClick={() => {
+                    // Redirect to office creation page
+                    window.location.href = '/admin/properties/apartment/new?type=office';
+                  }}
+                  className="border-2 rounded-lg p-6 hover:border-primary transition-colors text-left"
+                >
+                  <Building2 className="h-8 w-8 text-orange-600 mb-3" />
+                  <h3 className="font-semibold mb-2">Office Building</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure multiple floors and office spaces for commercial use.
+                  </p>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPropertyTypeSelector(false);
+                  }}
+                  className="border-2 rounded-lg p-6 hover:border-primary transition-colors text-left col-span-2"
                 >
                   <Home className="h-8 w-8 text-primary mb-3" />
                   <h3 className="font-semibold mb-2">Single Property</h3>

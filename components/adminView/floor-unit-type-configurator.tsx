@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/tooltip'
 import { UnitTypePropertyForm } from './unit-type-property-form'
 
-// Unit type options with colors
-export const UNIT_TYPES = [
+// Unit type options with colors - Residential (Apartments, Hostels)
+export const RESIDENTIAL_UNIT_TYPES = [
   { value: 'Studio', label: 'Studio', color: 'bg-emerald-500', lightColor: 'bg-emerald-100', textColor: 'text-emerald-700', borderColor: 'border-emerald-500' },
   { value: '1BR', label: '1 Bedroom', color: 'bg-blue-500', lightColor: 'bg-blue-100', textColor: 'text-blue-700', borderColor: 'border-blue-500' },
   { value: '2BR', label: '2 Bedroom', color: 'bg-purple-500', lightColor: 'bg-purple-100', textColor: 'text-purple-700', borderColor: 'border-purple-500' },
@@ -27,6 +27,26 @@ export const UNIT_TYPES = [
   { value: '4BR', label: '4 Bedroom', color: 'bg-rose-500', lightColor: 'bg-rose-100', textColor: 'text-rose-700', borderColor: 'border-rose-500' },
   { value: 'Penthouse', label: 'Penthouse', color: 'bg-indigo-500', lightColor: 'bg-indigo-100', textColor: 'text-indigo-700', borderColor: 'border-indigo-500' },
 ]
+
+// Office unit types - Commercial spaces
+export const OFFICE_UNIT_TYPES = [
+  { value: 'HotDesk', label: 'Hot Desk', color: 'bg-cyan-500', lightColor: 'bg-cyan-100', textColor: 'text-cyan-700', borderColor: 'border-cyan-500' },
+  { value: 'DedicatedDesk', label: 'Dedicated Desk', color: 'bg-teal-500', lightColor: 'bg-teal-100', textColor: 'text-teal-700', borderColor: 'border-teal-500' },
+  { value: 'PrivateOffice', label: 'Private Office', color: 'bg-blue-500', lightColor: 'bg-blue-100', textColor: 'text-blue-700', borderColor: 'border-blue-500' },
+  { value: 'TeamSuite', label: 'Team Suite', color: 'bg-purple-500', lightColor: 'bg-purple-100', textColor: 'text-purple-700', borderColor: 'border-purple-500' },
+  { value: 'ExecutiveOffice', label: 'Executive Office', color: 'bg-amber-500', lightColor: 'bg-amber-100', textColor: 'text-amber-700', borderColor: 'border-amber-500' },
+  { value: 'ConferenceRoom', label: 'Conference Room', color: 'bg-rose-500', lightColor: 'bg-rose-100', textColor: 'text-rose-700', borderColor: 'border-rose-500' },
+  { value: 'OpenSpace', label: 'Open Space', color: 'bg-emerald-500', lightColor: 'bg-emerald-100', textColor: 'text-emerald-700', borderColor: 'border-emerald-500' },
+  { value: 'VirtualOffice', label: 'Virtual Office', color: 'bg-indigo-500', lightColor: 'bg-indigo-100', textColor: 'text-indigo-700', borderColor: 'border-indigo-500' },
+]
+
+// Legacy export for backward compatibility
+export const UNIT_TYPES = RESIDENTIAL_UNIT_TYPES
+
+// Helper to get unit types based on building type
+export function getUnitTypesForBuilding(buildingType: string = 'apartment') {
+  return buildingType === 'office' ? OFFICE_UNIT_TYPES : RESIDENTIAL_UNIT_TYPES
+}
 
 // Configuration for each unit type per floor
 export interface UnitTypeConfig {
@@ -46,7 +66,7 @@ export interface UnitTypeImage {
 
 // Complete property details for a unit type (each unit type = individual property listing)
 export interface UnitTypeDetails {
-  type: string // e.g., "1BR", "2BR"
+  type: string // e.g., "1BR", "2BR" for residential, "PrivateOffice", "HotDesk" for office
   
   // Basic Property Info
   title?: string // Custom title for this listing
@@ -55,10 +75,20 @@ export interface UnitTypeDetails {
   // Pricing
   priceUgx?: number // Monthly rent in UGX
   
-  // Specifications
+  // Specifications - Residential
   area?: number // Area in m²
   bedrooms?: number // Number of bedrooms
   bathrooms?: number // Number of bathrooms
+  
+  // Specifications - Office/Commercial
+  squareFootage?: number // Square footage for office spaces
+  deskCapacity?: number // Number of desks/workstations
+  parkingSpaces?: number // Allocated parking spaces
+  meetingRooms?: number // Number of meeting rooms included
+  has24x7Access?: boolean // 24/7 building access
+  hasServerRoom?: boolean // Dedicated server room access
+  hasReception?: boolean // Reception/front desk service
+  hasKitchenette?: boolean // Kitchenette facilities
   
   // Media
   imageUrl?: string // Main image URL (backward compatibility)
@@ -73,7 +103,7 @@ export interface UnitTypeDetails {
   floorPlanUrl?: string // Floor plan image
   availableFrom?: string // Availability date
   minLeaseTerm?: number // Minimum lease in months
-  petPolicy?: string // Pet policy
+  petPolicy?: string // Pet policy (residential)
   utilities?: string[] // Included utilities
   
   // Property details (rooms, areas with descriptions and images)
@@ -146,10 +176,12 @@ interface FloorUnitTypeConfiguratorProps {
   buildingName?: string
   buildingLocation?: string
   blockId?: string // Optional block ID for generating proper unit numbers
+  buildingType?: string // 'apartment', 'hostel', or 'office'
 }
 
-function getUnitTypeInfo(type: string) {
-  return UNIT_TYPES.find(t => t.value === type) || UNIT_TYPES[1]
+function getUnitTypeInfo(type: string, buildingType: string = 'apartment') {
+  const unitTypes = getUnitTypesForBuilding(buildingType)
+  return unitTypes.find(t => t.value === type) || unitTypes[0]
 }
 
 export function FloorUnitTypeConfigurator({
@@ -161,8 +193,12 @@ export function FloorUnitTypeConfigurator({
   propertyBathrooms = 1,
   buildingName = '',
   buildingLocation = '',
-  blockId
+  blockId,
+  buildingType = 'apartment'
 }: FloorUnitTypeConfiguratorProps) {
+  
+  // Get the appropriate unit types based on building type
+  const unitTypes = useMemo(() => getUnitTypesForBuilding(buildingType), [buildingType])
   
   // Helper function to generate unit number (uses blockId if available, otherwise temporary format)
   const generateUnitNumberForUI = useCallback((floor: number, unitIndex: number): string => {
@@ -692,7 +728,7 @@ export function FloorUnitTypeConfigurator({
           <Label className="text-xs font-medium text-muted-foreground uppercase">Unit Type Distribution</Label>
           <div className="flex flex-wrap gap-2">
             {Object.entries(stats.typeStats).map(([type, count]) => {
-              const typeInfo = getUnitTypeInfo(type)
+              const typeInfo = getUnitTypeInfo(type, buildingType)
               return (
                 <Badge key={type} variant="outline" className={`${typeInfo.lightColor} ${typeInfo.textColor} border-0`}>
                   <div className={`w-2 h-2 rounded-full ${typeInfo.color} mr-1.5`} />
@@ -771,7 +807,7 @@ export function FloorUnitTypeConfigurator({
                     <span className="w-8 text-xs font-medium">{floorNum === 1 ? 'G' : `F${floorNum}`}</span>
                     <div className="flex-1 flex gap-1 flex-wrap">
                       {floor?.unitTypes.map((ut, idx) => {
-                        const typeInfo = getUnitTypeInfo(ut.type)
+                        const typeInfo = getUnitTypeInfo(ut.type, buildingType)
                         return (
                           <Tooltip key={idx}>
                             <TooltipTrigger asChild>
@@ -836,7 +872,7 @@ export function FloorUnitTypeConfigurator({
             {/* Unit Types on This Floor */}
             <div className="space-y-2">
               {currentFloor.unitTypes.map((unitType, idx) => {
-                const typeInfo = getUnitTypeInfo(unitType.type)
+                const typeInfo = getUnitTypeInfo(unitType.type, buildingType)
                 return (
                   <div key={idx} className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -848,7 +884,7 @@ export function FloorUnitTypeConfigurator({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {UNIT_TYPES.map(type => (
+                          { unitTypes.map(type => (
                             <SelectItem key={type.value} value={type.value}>
                               <div className="flex items-center gap-2">
                                 <div className={`w-3 h-3 rounded-full ${type.color}`} />
@@ -943,7 +979,7 @@ export function FloorUnitTypeConfigurator({
                 <SelectValue placeholder="Add Unit Type" />
               </SelectTrigger>
               <SelectContent>
-                {UNIT_TYPES.map(type => (
+                { unitTypes.map(type => (
                   <SelectItem key={type.value} value={type.value}>
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${type.color}`} />
@@ -981,7 +1017,7 @@ export function FloorUnitTypeConfigurator({
 
                 {/* Unit Type Property Forms */}
                 {uniqueUnitTypes.map(type => {
-                  const typeInfo = getUnitTypeInfo(type)
+                  const typeInfo = getUnitTypeInfo(type, buildingType)
                   const details = getUnitTypeDetail(type)
                   const unitCount = stats.typeStats[type] || 0
                   
@@ -1000,6 +1036,7 @@ export function FloorUnitTypeConfigurator({
                       defaultBathrooms={getDefaultBathrooms(type)}
                       onDetailsChange={(updates) => updateUnitTypeDetail(type, updates)}
                       onPriceChangeAcrossAllFloors={updateUnitTypeMonthlyFeeAcrossAllFloors}
+                      buildingType={buildingType}
                     />
                   )
                 })}
@@ -1072,7 +1109,7 @@ export function FloorUnitTypeConfigurator({
                     </SelectTrigger>
                     <SelectContent>
                       {uniqueUnitTypes.length > 0 ? uniqueUnitTypes.map(type => {
-                        const typeInfo = getUnitTypeInfo(type)
+                        const typeInfo = getUnitTypeInfo(type, buildingType)
                         return (
                           <SelectItem key={type} value={type}>
                             <div className="flex items-center gap-2">
@@ -1081,7 +1118,7 @@ export function FloorUnitTypeConfigurator({
                             </div>
                           </SelectItem>
                         )
-                      }) : UNIT_TYPES.map(type => (
+                      }) : unitTypes.map(type => (
                         <SelectItem key={type.value} value={type.value}>
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${type.color}`} />
@@ -1115,7 +1152,7 @@ export function FloorUnitTypeConfigurator({
                           <span className="w-8 text-xs font-medium">{floorNum === 1 ? 'G' : `F${floorNum}`}</span>
                           <div className="flex-1 flex gap-1 overflow-x-auto">
                             {floorUnits.map(unit => {
-                              const typeInfo = getUnitTypeInfo(unit.unitType)
+                              const typeInfo = getUnitTypeInfo(unit.unitType, buildingType)
                               return (
                                 <Tooltip key={unit.id}>
                                   <TooltipTrigger asChild>
@@ -1146,7 +1183,7 @@ export function FloorUnitTypeConfigurator({
                 <h4 className="font-medium text-sm">Floor {selectedFloor} Units ({unitsByFloor[selectedFloor]?.length || 0})</h4>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {(unitsByFloor[selectedFloor] || []).map(unit => {
-                    const typeInfo = getUnitTypeInfo(unit.unitType)
+                    const typeInfo = getUnitTypeInfo(unit.unitType, buildingType)
                     
                     return (
                       <div key={unit.id} className={`flex items-center gap-2 p-2 rounded-lg border ${unit.isAvailable ? 'bg-background' : 'bg-muted/50'}`}>
@@ -1159,7 +1196,7 @@ export function FloorUnitTypeConfigurator({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {UNIT_TYPES.map(type => (
+                            {unitTypes.map(type => (
                               <SelectItem key={type.value} value={type.value}>
                                 <div className="flex items-center gap-2">
                                   <div className={`w-2 h-2 rounded-full ${type.color}`} />
@@ -1220,3 +1257,4 @@ export function FloorUnitTypeConfigurator({
     </Card>
   )
 }
+

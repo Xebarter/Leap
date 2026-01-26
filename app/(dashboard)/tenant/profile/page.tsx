@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
-import { TenantMobileLayout } from "@/components/tenantView/tenant-mobile-layout"
 import { TenantProfile } from "@/components/tenantView/tenant-profile"
 import { TenantDocuments } from "@/components/tenantView/tenant-documents"
 import { TenantReferences } from "@/components/tenantView/tenant-references"
 import { ProfileEditForm } from "@/components/tenantView/forms/profile-edit-form"
+import { ChangePasswordButton, ResendVerificationButton, SecurityStrength } from "@/components/tenantView/security-actions"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -96,16 +96,14 @@ export default async function TenantProfilePage() {
 
   if (!user) {
     return (
-      <TenantMobileLayout user={{ email: "guest@example.com", user_metadata: { full_name: "Guest" } }}>
-        <div className="p-4 md:p-8">
-          <div className="max-w-6xl mx-auto text-center">
-            <p className="text-muted-foreground">Please sign in to access your profile.</p>
-            <a href="/auth/login" className="text-primary hover:underline font-medium mt-4 inline-block">
-              Sign in to your account
-            </a>
-          </div>
+      <div className="p-4 md:p-8">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-muted-foreground">Please sign in to access your profile.</p>
+          <a href="/auth/login" className="text-primary hover:underline font-medium mt-4 inline-block">
+            Sign in to your account
+          </a>
         </div>
-      </TenantMobileLayout>
+      </div>
     )
   }
 
@@ -125,17 +123,20 @@ export default async function TenantProfilePage() {
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     tenantProfile 
       ? supabase.from("tenant_documents").select("*").eq("tenant_profile_id", tenantProfile.id).order("created_at", { ascending: false })
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] }),
     tenantProfile
       ? supabase.from("tenant_references").select("*").eq("tenant_profile_id", tenantProfile.id).order("created_at", { ascending: false })
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] }),
   ])
+  
+  // Ensure arrays are never null
+  const safeDocuments = documents || []
+  const safeReferences = references || []
 
   const displayName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"
 
   return (
-    <TenantMobileLayout user={user}>
-      <div className="p-4 md:p-6 lg:p-8">
+    <div className="p-4 md:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
           <div className="mb-6 md:mb-8">
@@ -205,23 +206,23 @@ export default async function TenantProfilePage() {
                           <span className="text-xs font-medium text-muted-foreground">Profile Strength:</span>
                           <Badge 
                             variant="outline" 
-                            className={`text-xs bg-gradient-to-r ${getProfileStrength(calculateProfileCompletion(tenantProfile, documents, references)).color} text-white border-0`}
+                            className={`text-xs bg-gradient-to-r ${getProfileStrength(calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)).color} text-white border-0`}
                           >
-                            {getProfileStrength(calculateProfileCompletion(tenantProfile, documents, references)).label}
+                            {getProfileStrength(calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)).label}
                           </Badge>
                         </div>
                         <span className="text-xs font-bold text-primary">
-                          {calculateProfileCompletion(tenantProfile, documents, references)}%
+                          {calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)}%
                         </span>
                       </div>
                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
                         <div 
-                          className={`h-full bg-gradient-to-r ${getProfileStrength(calculateProfileCompletion(tenantProfile, documents, references)).color} transition-all duration-500 rounded-full`}
-                          style={{ width: `${calculateProfileCompletion(tenantProfile, documents, references)}%` }}
+                          className={`h-full bg-gradient-to-r ${getProfileStrength(calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)).color} transition-all duration-500 rounded-full`}
+                          style={{ width: `${calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)}%` }}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {getProfileStrength(calculateProfileCompletion(tenantProfile, documents, references)).description}
+                        {getProfileStrength(calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences)).description}
                       </p>
                     </div>
                   )}
@@ -250,7 +251,7 @@ export default async function TenantProfilePage() {
                   <User className="w-4 h-4" />
                   <span className="hidden sm:inline">Personal Info</span>
                   <span className="sm:hidden">Info</span>
-                  {tenantProfile && calculateProfileCompletion(tenantProfile, documents, references) < 100 && (
+                  {tenantProfile && calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences) < 100 && (
                     <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
                   )}
                 </TabsTrigger>
@@ -261,9 +262,9 @@ export default async function TenantProfilePage() {
                   <FileText className="w-4 h-4" />
                   <span className="hidden sm:inline">Documents</span>
                   <span className="sm:hidden">Docs</span>
-                  {documents && documents.length > 0 && (
+                  {safeDocuments && safeDocuments.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                      {documents.length}
+                      {safeDocuments.length}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -274,9 +275,9 @@ export default async function TenantProfilePage() {
                   <Users className="w-4 h-4" />
                   <span className="hidden sm:inline">References</span>
                   <span className="sm:hidden">Refs</span>
-                  {references && references.length > 0 && (
+                  {safeReferences && safeReferences.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                      {references.length}
+                      {safeReferences.length}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -285,23 +286,15 @@ export default async function TenantProfilePage() {
                   className="rounded-lg px-3 md:px-6 py-2.5 text-xs md:text-base flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all duration-200"
                 >
                   <Shield className="w-4 h-4" />
-                  <span className="hidden sm:inline">Security</span>
-                  <span className="sm:hidden">Sec</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="preferences" 
-                  className="rounded-lg px-3 md:px-6 py-2.5 text-xs md:text-base flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all duration-200"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Preferences</span>
-                  <span className="sm:hidden">Prefs</span>
+                  <span className="hidden sm:inline">Security & Preferences</span>
+                  <span className="sm:hidden">Settings</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="personal" className="space-y-6">
               {/* Profile Completion Guide */}
-              {tenantProfile && calculateProfileCompletion(tenantProfile, documents, references) < 100 && (
+              {tenantProfile && calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences) < 100 && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-l-4 border-orange-500">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
@@ -338,13 +331,13 @@ export default async function TenantProfilePage() {
                               <span>Add employment information</span>
                             </div>
                           )}
-                          {(!documents || documents.length < 2) && (
+                          {(!safeDocuments || safeDocuments.length < 2) && (
                             <div className="flex items-center gap-2 text-sm">
                               <div className="w-2 h-2 rounded-full bg-orange-500" />
                               <span>Upload at least 2 verification documents</span>
                             </div>
                           )}
-                          {(!references || references.length < 2) && (
+                          {(!safeReferences || safeReferences.length < 2) && (
                             <div className="flex items-center gap-2 text-sm">
                               <div className="w-2 h-2 rounded-full bg-orange-500" />
                               <span>Add at least 2 references</span>
@@ -358,7 +351,7 @@ export default async function TenantProfilePage() {
               )}
 
               {/* Success Message for Complete Profile with Achievements */}
-              {tenantProfile && calculateProfileCompletion(tenantProfile, documents, references) === 100 && (
+              {tenantProfile && calculateProfileCompletion(tenantProfile, safeDocuments, safeReferences) === 100 && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-l-4 border-green-500">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
@@ -379,12 +372,12 @@ export default async function TenantProfilePage() {
                               ✓ Verified User
                             </Badge>
                           )}
-                          {documents && documents.length >= 3 && (
+                          {safeDocuments && safeDocuments.length >= 3 && (
                             <Badge variant="outline" className="bg-gradient-to-r from-purple-400 to-purple-600 text-white border-0 text-xs">
                               📄 Document Pro
                             </Badge>
                           )}
-                          {references && references.length >= 2 && (
+                          {safeReferences && safeReferences.length >= 2 && (
                             <Badge variant="outline" className="bg-gradient-to-r from-green-400 to-green-600 text-white border-0 text-xs">
                               👥 Well Connected
                             </Badge>
@@ -419,9 +412,9 @@ export default async function TenantProfilePage() {
                       </div>
 
                       {/* Step 2 */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg ${documents && documents.length >= 2 ? 'bg-green-50 dark:bg-green-950/30' : 'bg-muted/30'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${documents && documents.length >= 2 ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                          {documents && documents.length >= 2 ? '✓' : '2'}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg ${safeDocuments && safeDocuments.length >= 2 ? 'bg-green-50 dark:bg-green-950/30' : 'bg-muted/30'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${safeDocuments && safeDocuments.length >= 2 ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                          {safeDocuments && safeDocuments.length >= 2 ? '✓' : '2'}
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">Upload Documents</p>
@@ -430,9 +423,9 @@ export default async function TenantProfilePage() {
                       </div>
 
                       {/* Step 3 */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg ${references && references.length >= 2 ? 'bg-green-50 dark:bg-green-950/30' : 'bg-muted/30'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${references && references.length >= 2 ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                          {references && references.length >= 2 ? '✓' : '3'}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg ${safeReferences && safeReferences.length >= 2 ? 'bg-green-50 dark:bg-green-950/30' : 'bg-muted/30'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${safeReferences && safeReferences.length >= 2 ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                          {safeReferences && safeReferences.length >= 2 ? '✓' : '3'}
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">Add References</p>
@@ -462,7 +455,7 @@ export default async function TenantProfilePage() {
 
             <TabsContent value="documents" className="space-y-6">
               {/* Documents Quick Tip */}
-              {(!documents || documents.length === 0) && (
+              {(!safeDocuments || safeDocuments.length === 0) && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
@@ -491,7 +484,7 @@ export default async function TenantProfilePage() {
                 </Card>
               )}
               
-              {documents && documents.length > 0 && documents.length < 2 && (
+              {safeDocuments && safeDocuments.length > 0 && safeDocuments.length < 2 && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-center gap-3">
@@ -504,12 +497,12 @@ export default async function TenantProfilePage() {
                 </Card>
               )}
 
-              <TenantDocuments documents={documents || []} />
+              <TenantDocuments documents={safeDocuments} />
             </TabsContent>
 
             <TabsContent value="references" className="space-y-6">
               {/* References Quick Tip */}
-              {(!references || references.length === 0) && (
+              {(!safeReferences || safeReferences.length === 0) && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
@@ -537,7 +530,7 @@ export default async function TenantProfilePage() {
                 </Card>
               )}
 
-              {references && references.length > 0 && references.length < 2 && (
+              {safeReferences && safeReferences.length > 0 && safeReferences.length < 2 && (
                 <Card className="border-none shadow-sm bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-center gap-3">
@@ -550,10 +543,21 @@ export default async function TenantProfilePage() {
                 </Card>
               )}
 
-              <TenantReferences references={references || []} />
+              <TenantReferences references={safeReferences} />
             </TabsContent>
 
             <TabsContent value="security" className="space-y-6">
+              {/* Page Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Security & Preferences</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage your account security, notifications, and preferences
+                  </p>
+                </div>
+              </div>
+
+              {/* Security Section */}
               <Card className="border-none shadow-sm bg-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -563,6 +567,8 @@ export default async function TenantProfilePage() {
                   <p className="text-sm text-muted-foreground mt-2">Manage your account security and access</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Security Strength Indicator */}
+                  <SecurityStrength user={user} />
                   {/* Password */}
                   <div className="p-4 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-border/50 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-4">
@@ -574,11 +580,7 @@ export default async function TenantProfilePage() {
                           <h3 className="font-semibold">Password</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">Last changed: Never</p>
-                        <a href="/auth/reset-password">
-                          <Button variant="outline" size="sm" className="text-xs">
-                            Change Password
-                          </Button>
-                        </a>
+                        <ChangePasswordButton />
                       </div>
                       <Badge variant="outline" className="text-xs">Active</Badge>
                     </div>
@@ -610,9 +612,7 @@ export default async function TenantProfilePage() {
                             : "Verify your email to secure your account"}
                         </p>
                         {!user.email_confirmed_at && (
-                          <Button variant="outline" size="sm" className="text-xs">
-                            Resend Verification Email
-                          </Button>
+                          <ResendVerificationButton />
                         )}
                       </div>
                       <Badge 
@@ -664,17 +664,20 @@ export default async function TenantProfilePage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            <TabsContent value="preferences" className="space-y-6">
-              <Card className="border-none shadow-sm bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-primary" />
-                    Notification Preferences
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">Customize how and when you receive notifications</p>
-                </CardHeader>
+              {/* Preferences Section */}
+              <div className="pt-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-primary" />
+                      Notification Preferences
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Customize how and when you receive notifications
+                    </p>
+                  </div>
+                </div>
                 <CardContent className="space-y-4">
                   {/* Communication Method */}
                   <div className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-border/50">
@@ -778,11 +781,10 @@ export default async function TenantProfilePage() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
       </div>
-    </TenantMobileLayout>
   )
 }

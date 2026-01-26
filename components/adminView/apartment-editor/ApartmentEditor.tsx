@@ -23,6 +23,25 @@ import {
 } from './sections'
 import { FloorUnitTypeConfiguration } from '../floor-unit-type-configurator'
 
+// Helper functions for building type
+function getBuildingTypeLabel(type: string): string {
+  switch (type) {
+    case 'hostel': return 'Hostel'
+    case 'office': return 'Office'
+    case 'apartment':
+    default: return 'Apartment'
+  }
+}
+
+function getCategoryFromBuildingType(type: string): string {
+  switch (type) {
+    case 'hostel': return 'Hostel'
+    case 'office': return 'Office'
+    case 'apartment':
+    default: return 'Apartment'
+  }
+}
+
 // Define sections for the apartment editor
 const SECTIONS: ApartmentEditorSection[] = [
   {
@@ -71,9 +90,10 @@ interface ApartmentEditorProps {
   blockId?: string
   initialData?: Partial<ApartmentFormData>
   isNew?: boolean
+  buildingType?: string // 'apartment', 'hostel', or 'office'
 }
 
-export function ApartmentEditor({ blockId, initialData, isNew = false }: ApartmentEditorProps) {
+export function ApartmentEditor({ blockId, initialData, isNew = false, buildingType = 'apartment' }: ApartmentEditorProps) {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState('building')
   const [isLoading, setIsLoading] = useState(!isNew && !!blockId)
@@ -171,9 +191,9 @@ export function ApartmentEditor({ blockId, initialData, isNew = false }: Apartme
         title: formData.buildingName,
         building_name: formData.buildingName,
         location: formData.location,
-        description: `Apartment building at ${formData.location}`,
+        description: `${getBuildingTypeLabel(buildingType)} building at ${formData.location}`,
         price: 0,
-        category: 'Apartment',
+        category: getCategoryFromBuildingType(buildingType),
         bedrooms: 1,
         bathrooms: 1,
         total_floors: formData.totalFloors,
@@ -272,6 +292,7 @@ export function ApartmentEditor({ blockId, initialData, isNew = false }: Apartme
             buildingName={formData.buildingName}
             buildingLocation={formData.location}
             blockId={formData.blockId}
+            buildingType={buildingType}
           />
         )
       case 'unit-types':
@@ -281,6 +302,7 @@ export function ApartmentEditor({ blockId, initialData, isNew = false }: Apartme
             uniqueUnitTypes={uniqueUnitTypes}
             onUpdateUnitTypeDetails={updateSingleUnitTypeDetails}
             buildingName={formData.buildingName}
+            buildingType={buildingType}
           />
         )
       case 'media':
@@ -335,6 +357,7 @@ export function ApartmentEditor({ blockId, initialData, isNew = false }: Apartme
         onBack={handleBack}
         onDelete={!isNew ? handleDelete : undefined}
         isSaving={isSaving}
+        buildingType={buildingType}
       />
 
       <ApartmentEditorMobileTabs

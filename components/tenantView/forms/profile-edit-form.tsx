@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
-import { Edit2, AlertCircle } from "lucide-react"
+import { Edit2, AlertCircle, Loader2 } from "lucide-react"
 
 export function ProfileEditForm({ profile, onSubmit }: { profile: any; onSubmit?: (data: any) => void }) {
   const [open, setOpen] = useState(false)
@@ -35,16 +35,77 @@ export function ProfileEditForm({ profile, onSubmit }: { profile: any; onSubmit?
     setLoading(true)
 
     try {
-      // TODO: Submit to API endpoint
-      console.log("Profile Update:", formData)
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tenant_profile: {
+            phone_number: formData.phone_number || null,
+            date_of_birth: formData.date_of_birth || null,
+            national_id: formData.national_id || null,
+            national_id_type: formData.national_id_type || null,
+            home_address: formData.home_address || null,
+            home_city: formData.home_city || null,
+            home_district: formData.home_district || null,
+            home_postal_code: formData.home_postal_code || null,
+            employment_status: formData.employment_status || 'Employed',
+            employer_name: formData.employer_name || null,
+            employer_contact: formData.employer_contact || null,
+            employment_start_date: formData.employment_start_date || null,
+            monthly_income_ugx: formData.monthly_income_ugx ? parseInt(formData.monthly_income_ugx.toString()) : null,
+            employment_type: formData.employment_type || null,
+            preferred_communication: formData.preferred_communication || 'email',
+          }
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error("❌ API Error Response:", data)
+        console.error("Status:", response.status)
+        console.error("Details:", data.details)
+        console.error("Code:", data.code)
+        console.error("Hint:", data.hint)
+        
+        // Show detailed error in alert
+        const errorMsg = `
+ERROR DETAILS:
+- Status: ${response.status}
+- Error: ${data.error}
+- Details: ${data.details || 'No details'}
+- Code: ${data.code || 'No code'}
+- Hint: ${data.hint || 'No hint'}
+
+This information is also in the browser console.
+        `.trim()
+        
+        if (typeof window !== 'undefined') {
+          alert(errorMsg)
+        }
+        
+        throw new Error(data.details || data.error || "Failed to update profile")
+      }
 
       if (onSubmit) {
-        onSubmit(formData)
+        onSubmit(data.tenant_profile)
       }
 
       setOpen(false)
+      
+      // Show success message
+      if (typeof window !== 'undefined') {
+        alert("Profile updated successfully!")
+        // Refresh the page to show updated data
+        window.location.reload()
+      }
     } catch (error) {
       console.error("Error updating profile:", error)
+      if (typeof window !== 'undefined') {
+        alert(error instanceof Error ? error.message : "Failed to update profile. Please try again.")
+      }
     } finally {
       setLoading(false)
     }
@@ -298,7 +359,14 @@ export function ProfileEditForm({ profile, onSubmit }: { profile: any; onSubmit?
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
         </form>

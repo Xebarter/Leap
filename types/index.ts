@@ -1,3 +1,65 @@
+// ============================================================================
+// USER PROFILE TYPES
+// ============================================================================
+
+// Base profile from profiles table
+export interface Profile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  email: string | null
+  is_admin: boolean
+  role: 'admin' | 'tenant' | 'landlord'
+  phone_number: string | null
+  bio: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Extended tenant profile from tenant_profiles table
+export interface TenantProfile {
+  id: string
+  user_id: string
+  // Personal Information
+  phone_number: string | null
+  date_of_birth: string | null
+  national_id: string | null
+  national_id_type: 'Passport' | 'National ID' | 'Driving License' | 'Other' | null
+  // Address Information
+  home_address: string | null
+  home_city: string | null
+  home_district: string | null
+  home_postal_code: string | null
+  // Employment Information
+  employment_status: 'Employed' | 'Self-Employed' | 'Student' | 'Unemployed' | 'Retired' | 'Other'
+  employer_name: string | null
+  employer_contact: string | null
+  employment_start_date: string | null
+  // Financial Information
+  monthly_income_ugx: number | null
+  employment_type: 'Full-Time' | 'Part-Time' | 'Contract' | 'Freelance' | 'Other' | null
+  // Status
+  status: 'active' | 'inactive' | 'suspended' | 'blacklisted'
+  verification_status: 'unverified' | 'pending' | 'verified' | 'rejected'
+  verification_date: string | null
+  verified_by: string | null
+  // Preferences
+  preferred_communication: 'email' | 'sms' | 'whatsapp' | 'phone' | 'all'
+  // Timestamps
+  created_at: string
+  updated_at: string
+}
+
+// Combined profile data
+export interface CompleteProfile {
+  profile: Profile
+  tenant_profile: TenantProfile | null
+}
+
+// ============================================================================
+// PROPERTY TYPES
+// ============================================================================
+
 // Property image from property_images table
 export interface PropertyImage {
   id: string

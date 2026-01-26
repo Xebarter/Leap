@@ -872,6 +872,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                         propertyTitle={property.title}
                         propertyLocation={property.location || ''}
                         monthlyRent={property.price_ugx}
+                        propertyCode={propertyUniqueId}
                         triggerButton={
                           <Button 
                             className="w-full gap-2 h-12 text-base font-bold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all group relative overflow-hidden"

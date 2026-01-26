@@ -17,7 +17,6 @@ export function PublicHeader() {
   const navItems = [
     { label: 'Home', href: '/' },
     { label: 'Properties', href: '/properties' },
-    { label: 'About Us', href: '/about' },
     { label: 'How It Works', href: '/how-it-works' },
     { label: 'Contact', href: '/contact' },
   ]

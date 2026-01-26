@@ -1,12 +1,36 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ReferenceForm } from "./forms/reference-form"
-import { Phone, Mail, CheckCircle2, Clock, AlertCircle, Users } from "lucide-react"
+import { Phone, Mail, CheckCircle2, Clock, AlertCircle, Users, Edit, Trash2 } from "lucide-react"
 
 export function TenantReferences({ references }: { references: any[] }) {
+  const [isWorking, setIsWorking] = useState<string | null>(null)
+  const [editingReference, setEditingReference] = useState<any | null>(null)
+
+  const handleDelete = async (referenceId: string) => {
+    const confirmed = confirm('Are you sure you want to delete this reference? This action cannot be undone.')
+    if (!confirmed) return
+    
+    try {
+      setIsWorking(referenceId)
+      const res = await fetch(`/api/tenant/references?id=${referenceId}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to delete reference')
+      
+      alert('Reference deleted successfully!')
+      // Refresh page after delete
+      window.location.reload()
+    } catch (e: any) {
+      alert(`Error: ${e.message || 'Failed to delete reference'}`)
+    } finally {
+      setIsWorking(null)
+    }
+  }
+
   const getVerificationIcon = (status: string) => {
     switch (status) {
       case "verified":
@@ -104,6 +128,24 @@ export function TenantReferences({ references }: { references: any[] }) {
                     <span>Verified on {new Date(ref.verification_date).toLocaleDateString()}</span>
                   </div>
                 )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
+                  <ReferenceForm 
+                    editData={ref}
+                    onSubmit={() => window.location.reload()}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-1"
+                    onClick={() => handleDelete(ref.id)}
+                    disabled={isWorking === ref.id}
+                  >
+                    <Trash2 className="w-3 h-3 mr-2" />
+                    {isWorking === ref.id ? 'Deleting...' : 'Delete'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

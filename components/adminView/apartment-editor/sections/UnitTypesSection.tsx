@@ -21,9 +21,10 @@ interface UnitTypesSectionProps {
   uniqueUnitTypes: string[]
   onUpdateUnitTypeDetails: (type: string, details: Partial<UnitTypeDetails>) => void
   buildingName: string
+  buildingType?: string // 'apartment', 'hostel', or 'office'
 }
 
-// Default bedroom/bathroom counts per unit type
+// Default bedroom/bathroom counts per unit type (residential)
 function getDefaultBedrooms(type: string): number {
   const map: Record<string, number> = { 'Studio': 0, '1BR': 1, '2BR': 2, '3BR': 3, '4BR': 4, 'Penthouse': 4 }
   return map[type] ?? 1
@@ -39,12 +40,57 @@ function getDefaultArea(type: string): number {
   return 40 + (bedrooms * 20)
 }
 
+// Default values for office unit types
+function getDefaultDeskCapacity(type: string): number {
+  const map: Record<string, number> = { 
+    'HotDesk': 1, 
+    'DedicatedDesk': 1, 
+    'PrivateOffice': 4, 
+    'TeamSuite': 10, 
+    'ExecutiveOffice': 6,
+    'ConferenceRoom': 12,
+    'OpenSpace': 20,
+    'VirtualOffice': 0
+  }
+  return map[type] ?? 4
+}
+
+function getDefaultSquareFootage(type: string): number {
+  const map: Record<string, number> = { 
+    'HotDesk': 50, 
+    'DedicatedDesk': 60, 
+    'PrivateOffice': 200, 
+    'TeamSuite': 500, 
+    'ExecutiveOffice': 400,
+    'ConferenceRoom': 300,
+    'OpenSpace': 1000,
+    'VirtualOffice': 0
+  }
+  return map[type] ?? 200
+}
+
+function getDefaultParkingSpaces(type: string): number {
+  const map: Record<string, number> = { 
+    'HotDesk': 0, 
+    'DedicatedDesk': 0, 
+    'PrivateOffice': 1, 
+    'TeamSuite': 3, 
+    'ExecutiveOffice': 2,
+    'ConferenceRoom': 2,
+    'OpenSpace': 5,
+    'VirtualOffice': 0
+  }
+  return map[type] ?? 1
+}
+
 export function UnitTypesSection({ 
   formData, 
   uniqueUnitTypes, 
   onUpdateUnitTypeDetails,
-  buildingName 
+  buildingName,
+  buildingType = 'apartment'
 }: UnitTypesSectionProps) {
+  const isOfficeBuilding = buildingType === 'office'
   const [activeTab, setActiveTab] = useState(uniqueUnitTypes[0] || '')
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
 
@@ -307,45 +353,145 @@ export function UnitTypesSection({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Bed className="h-4 w-4" /> Bedrooms
-                      </Label>
-                      <Input
-                        type="number"
-                        value={details.bedrooms ?? getDefaultBedrooms(type)}
-                        onChange={(e) => onUpdateUnitTypeDetails(type, { bedrooms: parseInt(e.target.value) || 0 })}
-                        min={0}
-                        max={10}
-                      />
+                  {isOfficeBuilding ? (
+                    // Office Building Specifications
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Ruler className="h-4 w-4" /> Square Footage
+                          </Label>
+                          <Input
+                            type="number"
+                            value={details.squareFootage ?? getDefaultSquareFootage(type)}
+                            onChange={(e) => onUpdateUnitTypeDetails(type, { squareFootage: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            placeholder="200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Home className="h-4 w-4" /> Desk Capacity
+                          </Label>
+                          <Input
+                            type="number"
+                            value={details.deskCapacity ?? getDefaultDeskCapacity(type)}
+                            onChange={(e) => onUpdateUnitTypeDetails(type, { deskCapacity: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            placeholder="4"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Home className="h-4 w-4" /> Parking Spaces
+                          </Label>
+                          <Input
+                            type="number"
+                            value={details.parkingSpaces ?? getDefaultParkingSpaces(type)}
+                            onChange={(e) => onUpdateUnitTypeDetails(type, { parkingSpaces: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            placeholder="1"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Home className="h-4 w-4" /> Meeting Rooms
+                          </Label>
+                          <Input
+                            type="number"
+                            value={details.meetingRooms ?? 0}
+                            onChange={(e) => onUpdateUnitTypeDetails(type, { meetingRooms: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Office Features</Label>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={details.has24x7Access ?? false}
+                                onChange={(e) => onUpdateUnitTypeDetails(type, { has24x7Access: e.target.checked })}
+                                className="rounded"
+                              />
+                              <span className="text-sm">24/7 Access</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={details.hasServerRoom ?? false}
+                                onChange={(e) => onUpdateUnitTypeDetails(type, { hasServerRoom: e.target.checked })}
+                                className="rounded"
+                              />
+                              <span className="text-sm">Server Room Access</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={details.hasReception ?? false}
+                                onChange={(e) => onUpdateUnitTypeDetails(type, { hasReception: e.target.checked })}
+                                className="rounded"
+                              />
+                              <span className="text-sm">Reception Service</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={details.hasKitchenette ?? false}
+                                onChange={(e) => onUpdateUnitTypeDetails(type, { hasKitchenette: e.target.checked })}
+                                className="rounded"
+                              />
+                              <span className="text-sm">Kitchenette</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  ) : (
+                    // Residential Specifications (Apartment/Hostel)
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Bed className="h-4 w-4" /> Bedrooms
+                        </Label>
+                        <Input
+                          type="number"
+                          value={details.bedrooms ?? getDefaultBedrooms(type)}
+                          onChange={(e) => onUpdateUnitTypeDetails(type, { bedrooms: parseInt(e.target.value) || 0 })}
+                          min={0}
+                          max={10}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Bath className="h-4 w-4" /> Bathrooms
-                      </Label>
-                      <Input
-                        type="number"
-                        value={details.bathrooms ?? getDefaultBathrooms(type)}
-                        onChange={(e) => onUpdateUnitTypeDetails(type, { bathrooms: parseInt(e.target.value) || 0 })}
-                        min={0}
-                        max={10}
-                      />
-                    </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Bath className="h-4 w-4" /> Bathrooms
+                        </Label>
+                        <Input
+                          type="number"
+                          value={details.bathrooms ?? getDefaultBathrooms(type)}
+                          onChange={(e) => onUpdateUnitTypeDetails(type, { bathrooms: parseInt(e.target.value) || 0 })}
+                          min={0}
+                          max={10}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Ruler className="h-4 w-4" /> Area (m²)
-                      </Label>
-                      <Input
-                        type="number"
-                        value={details.area ?? getDefaultArea(type)}
-                        onChange={(e) => onUpdateUnitTypeDetails(type, { area: parseInt(e.target.value) || 0 })}
-                        min={0}
-                      />
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Ruler className="h-4 w-4" /> Area (m²)
+                        </Label>
+                        <Input
+                          type="number"
+                          value={details.area ?? getDefaultArea(type)}
+                          onChange={(e) => onUpdateUnitTypeDetails(type, { area: parseInt(e.target.value) || 0 })}
+                          min={0}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 

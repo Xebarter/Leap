@@ -20,6 +20,17 @@ interface ApartmentEditorHeaderProps {
   onDelete?: () => void
   onPreview?: () => void
   isSaving: boolean
+  buildingType?: string // 'apartment', 'hostel', or 'office'
+}
+
+// Helper function for display labels
+function getBuildingTypeLabel(type: string): string {
+  switch (type) {
+    case 'hostel': return 'Hostel'
+    case 'office': return 'Office'
+    case 'apartment':
+    default: return 'Apartment'
+  }
 }
 
 export function ApartmentEditorHeader({
@@ -34,6 +45,7 @@ export function ApartmentEditorHeader({
   onDelete,
   onPreview,
   isSaving,
+  buildingType = 'apartment',
 }: ApartmentEditorHeaderProps) {
   const getSaveStatusDisplay = () => {
     switch (saveStatus.status) {
@@ -85,7 +97,7 @@ export function ApartmentEditorHeader({
             </div>
             <div>
               <h1 className="font-semibold text-lg">
-                {isNew ? 'New Apartment Building' : buildingName || 'Edit Building'}
+                {isNew ? `New ${getBuildingTypeLabel(buildingType)} Building` : buildingName || 'Edit Building'}
               </h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 {blockId && (

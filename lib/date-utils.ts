@@ -7,8 +7,18 @@
  * Format a date consistently without using locale-dependent methods
  * Returns format: "Jan 15, 2024"
  */
-export function formatDateConsistent(dateInput: string | Date): string {
+export function formatDateConsistent(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) {
+    return 'N/A';
+  }
+  
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return 'Invalid Date';
+  }
+  
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const month = months[date.getMonth()];
   const day = date.getDate();
@@ -20,8 +30,18 @@ export function formatDateConsistent(dateInput: string | Date): string {
  * Format a date in ISO format: "2024-01-15"
  * This is the most reliable format for server/client consistency
  */
-export function formatDateISO(dateInput: string | Date): string {
+export function formatDateISO(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) {
+    return '';
+  }
+  
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return '';
+  }
+  
   return date.toISOString().split('T')[0];
 }
 

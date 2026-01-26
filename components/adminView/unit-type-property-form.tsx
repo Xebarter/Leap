@@ -60,8 +60,8 @@ const UTILITIES_OPTIONS = [
   'Garbage Collection',
 ]
 
-// Quick add detail templates (for property details like rooms, areas)
-const DETAIL_TEMPLATES = [
+// Quick add detail templates - Residential (apartments, hostels)
+const RESIDENTIAL_DETAIL_TEMPLATES = [
   { type: 'Bedroom', name: 'Master Bedroom', icon: '🛏️' },
   { type: 'Bedroom', name: 'Guest Bedroom', icon: '🛏️' },
   { type: 'Bathroom', name: 'Master Bathroom', icon: '🚿' },
@@ -75,6 +75,25 @@ const DETAIL_TEMPLATES = [
   { type: 'Garage', name: 'Parking Garage', icon: '🚗' },
   { type: 'Gym', name: 'Fitness Center', icon: '💪' },
 ]
+
+// Quick add detail templates - Office/Commercial
+const OFFICE_DETAIL_TEMPLATES = [
+  { type: 'Office Space', name: 'Open Plan Area', icon: '💼' },
+  { type: 'Office Space', name: 'Private Offices', icon: '🚪' },
+  { type: 'Meeting Room', name: 'Conference Room', icon: '📊' },
+  { type: 'Meeting Room', name: 'Boardroom', icon: '🎯' },
+  { type: 'Kitchen', name: 'Kitchenette', icon: '☕' },
+  { type: 'Kitchen', name: 'Break Room', icon: '🍽️' },
+  { type: 'Reception', name: 'Reception Area', icon: '🏢' },
+  { type: 'Storage', name: 'Storage Room', icon: '📦' },
+  { type: 'Server Room', name: 'Server/IT Room', icon: '💻' },
+  { type: 'Lounge', name: 'Lounge Area', icon: '🛋️' },
+  { type: 'Parking', name: 'Parking Spaces', icon: '🅿️' },
+  { type: 'Restroom', name: 'Restrooms', icon: '🚻' },
+]
+
+// Legacy export for backward compatibility
+const DETAIL_TEMPLATES = RESIDENTIAL_DETAIL_TEMPLATES
 
 // Property detail image interface
 export interface PropertyDetailImage {
@@ -107,6 +126,7 @@ interface UnitTypePropertyFormProps {
   onPriceChangeAcrossAllFloors?: (type: string, price: number) => void
   isExpanded?: boolean
   onToggleExpand?: () => void
+  buildingType?: string // 'apartment', 'hostel', or 'office'
 }
 
 export function UnitTypePropertyForm({
@@ -123,8 +143,12 @@ export function UnitTypePropertyForm({
   onDetailsChange,
   onPriceChangeAcrossAllFloors,
   isExpanded = true,
-  onToggleExpand
+  onToggleExpand,
+  buildingType = 'apartment'
 }: UnitTypePropertyFormProps) {
+  
+  // Get appropriate templates based on building type
+  const detailTemplates = buildingType === 'office' ? OFFICE_DETAIL_TEMPLATES : RESIDENTIAL_DETAIL_TEMPLATES
   const [activeTab, setActiveTab] = useState('images')
   
   // Handle price change with deferred sync
@@ -355,7 +379,7 @@ export function UnitTypePropertyForm({
                   Add rooms and areas to highlight in this listing
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {DETAIL_TEMPLATES.map((template, idx) => {
+                  {detailTemplates.map((template, idx) => {
                     const isAdded = details.propertyDetails?.some(
                       d => d.type === template.type && d.name === template.name
                     )
@@ -402,7 +426,7 @@ export function UnitTypePropertyForm({
                     <Label className="text-sm font-medium">Added Details ({details.propertyDetails?.length})</Label>
                     <div className="space-y-3">
                       {details.propertyDetails?.map((detail) => {
-                        const template = DETAIL_TEMPLATES.find(
+                        const template = detailTemplates.find(
                           t => t.type === detail.type && t.name === detail.name
                         )
                         return (
@@ -763,3 +787,4 @@ export function UnitTypePropertyForm({
 }
 
 export default UnitTypePropertyForm
+

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { TenantMobileLayout } from "@/components/tenantView/tenant-mobile-layout"
 import { TenantDocuments } from "@/components/tenantView/tenant-documents"
 import { TenantReferences } from "@/components/tenantView/tenant-references"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -16,16 +15,14 @@ export default async function TenantDocumentsPage() {
 
   if (!user) {
     return (
-      <TenantMobileLayout user={{ email: "guest@example.com", user_metadata: { full_name: "Guest" } }}>
-        <div className="p-4 md:p-8">
-          <div className="max-w-6xl mx-auto text-center">
-            <p className="text-muted-foreground">Please sign in to access your documents.</p>
-            <a href="/auth/login" className="text-primary hover:underline font-medium mt-4 inline-block">
-              Sign in to your account
-            </a>
-          </div>
+      <div className="p-4 md:p-8">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-muted-foreground">Please sign in to access your documents.</p>
+          <a href="/auth/login" className="text-primary hover:underline font-medium mt-4 inline-block">
+            Sign in to your account
+          </a>
         </div>
-      </TenantMobileLayout>
+      </div>
     )
   }
 
@@ -65,8 +62,7 @@ export default async function TenantDocumentsPage() {
   }
 
   return (
-    <TenantMobileLayout user={user}>
-      <div className="p-4 md:p-6 lg:p-8">
+    <div className="p-4 md:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
           <header className="mb-6 md:mb-8">
@@ -186,6 +182,5 @@ export default async function TenantDocumentsPage() {
           </Tabs>
         </div>
       </div>
-    </TenantMobileLayout>
   )
 }

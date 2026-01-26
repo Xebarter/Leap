@@ -1,0 +1,22 @@
+## Error Type
+Runtime TypeError
+
+## Error Message
+Cannot read properties of null (reading 'getMonth')
+
+
+    at formatDateConsistent (lib\date-utils.ts:13:29)
+    at <anonymous> (components\tenantView\booking-list.tsx:49:40)
+    at Array.map (<anonymous>:1:18)
+    at BookingList (components\tenantView\booking-list.tsx:25:24)
+
+## Code Frame
+  11 |   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  12 |   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+> 13 |   const month = months[date.getMonth()];
+     |                             ^
+  14 |   const day = date.getDate();
+  15 |   const year = date.getFullYear();
+  16 |   return `${month} ${day}, ${year}`;
+
+Next.js version: 16.0.10 (Turbopack)

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { TenantMobileLayout } from "@/components/tenantView/tenant-mobile-layout"
+import { redirect } from "next/navigation"
 import { BookingList } from "@/components/tenantView/booking-list"
 import { UpcomingPayments } from "@/components/tenantView/upcoming-payments"
 import { SavedProperties } from "@/components/tenantView/saved-properties"
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, FileText, Wrench, Bell, AlertTriangle, TrendingUp, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 export default async function TenantDashboard() {
   const supabase = await createClient()
@@ -16,31 +17,13 @@ export default async function TenantDashboard() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Allow access without authentication for now
   if (!user) {
-    return (
-      <TenantMobileLayout user={{ email: "guest@example.com", user_metadata: { full_name: "Guest" } }}>
-        <div className="p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
-            <header className="mb-6 md:mb-10">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome to Tenant Dashboard</h1>
-              <p className="text-muted-foreground mt-2 text-base md:text-lg">Please sign in to access your tenant information.</p>
-            </header>
-            <div className="bg-muted/20 p-8 md:p-12 rounded-lg text-center">
-              <p className="text-muted-foreground mb-4">Authentication is required to view your tenant data.</p>
-              <a href="/auth/login" className="text-primary hover:underline font-medium">
-                Sign in to your account
-              </a>
-            </div>
-          </div>
-        </div>
-      </TenantMobileLayout>
-    )
+    redirect("/auth/login")
   }
 
   // Fetch all relevant data in parallel
   const [
-    { data: bookings },
+    { data: bookings, error: bookingsError },
     { data: tenantProfile },
     { data: userProfile },
     { data: pendingPayments },
@@ -51,8 +34,25 @@ export default async function TenantDashboard() {
   ] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*, properties(title, location, image_url, price_per_night)")
-      .eq("tenant_id", user.id)
+      .select(`
+        id,
+        booking_type,
+        status,
+        tenant_id,
+        property_id,
+        check_in,
+        check_out,
+        total_price_ugx,
+        visit_date,
+        visit_time,
+        visitor_name,
+        visitor_email,
+        visitor_phone,
+        visit_notes,
+        created_at,
+        properties(title, location, image_url, price_ugx, property_type)
+      `)
+      .or(`tenant_id.eq.${user.id},visitor_email.eq.${user.email}`)
       .order("created_at", { ascending: false })
       .limit(5),
     supabase.from("tenant_profiles").select("*").eq("user_id", user.id).single(),
@@ -85,6 +85,14 @@ export default async function TenantDashboard() {
     supabase.from("tenant_dashboard_summary").select("*").eq("user_id", user.id).single(),
   ])
 
+  // Debug logging
+  console.log('=== TENANT DASHBOARD DEBUG ===')
+  console.log('User ID:', user.id)
+  console.log('User Email:', user.email)
+  console.log('Bookings Error:', bookingsError)
+  console.log('Bookings Count:', bookings?.length)
+  console.log('Bookings Data:', JSON.stringify(bookings, null, 2))
+
   // Get the user's display name from multiple possible sources
   const profileName = 
     userProfile?.full_name || 
@@ -94,12 +102,31 @@ export default async function TenantDashboard() {
     "Guest"
 
   return (
-    <TenantMobileLayout user={user}>
-      <div className="p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
           <header className="mb-6 md:mb-10">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome back, {profileName}!</h1>
-            <p className="text-muted-foreground mt-2 text-base md:text-lg">Manage your rentals, payments, and communications</p>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative w-12 h-12 md:w-16 md:h-16">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome back, {profileName}!</h1>
+                <p className="text-muted-foreground mt-2 text-base md:text-lg">Manage your rentals, payments, and communications</p>
+                {tenantProfile?.tenant_number && (
+                  <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
+                    <Badge variant="outline" className="text-sm font-mono font-semibold text-primary border-primary/30">
+                      Tenant ID: {tenantProfile.tenant_number}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </div>
           </header>
 
           {/* Quick Stats */}
@@ -320,9 +347,8 @@ export default async function TenantDashboard() {
                 </CardContent>
               </Card>
             </div>
-          </div>
         </div>
       </div>
-    </TenantMobileLayout>
+    </div>
   )
 }

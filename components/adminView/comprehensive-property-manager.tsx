@@ -251,10 +251,30 @@ export function ComprehensivePropertyManager({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuItem asChild>
-              <a href="/admin/properties/apartment/new" className="flex items-start gap-3 p-3 cursor-pointer">
+              <a href="/admin/properties/apartment/new?type=apartment" className="flex items-start gap-3 p-3 cursor-pointer">
                 <Building2 className="h-5 w-5 text-primary mt-0.5" />
                 <div>
                   <div className="font-medium">Apartment Building</div>
+                  <div className="text-xs text-muted-foreground">Multiple floors & unit types</div>
+                </div>
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href="/admin/properties/apartment/new?type=hostel" className="flex items-start gap-3 p-3 cursor-pointer">
+                <Building2 className="h-5 w-5 text-purple-600 mt-0.5" />
+                <div>
+                  <div className="font-medium">Hostel Building</div>
+                  <div className="text-xs text-muted-foreground">Multiple floors & unit types</div>
+                </div>
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href="/admin/properties/apartment/new?type=office" className="flex items-start gap-3 p-3 cursor-pointer">
+                <Building2 className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div>
+                  <div className="font-medium">Office Building</div>
                   <div className="text-xs text-muted-foreground">Multiple floors & unit types</div>
                 </div>
               </a>

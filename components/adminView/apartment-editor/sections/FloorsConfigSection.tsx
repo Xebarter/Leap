@@ -16,6 +16,7 @@ interface FloorsConfigSectionProps {
   buildingName?: string
   buildingLocation?: string
   blockId?: string
+  buildingType?: string // 'apartment', 'hostel', or 'office'
 }
 
 export function FloorsConfigSection({ 
@@ -25,7 +26,8 @@ export function FloorsConfigSection({
   onUpdateUnitTypeDetails,
   buildingName,
   buildingLocation,
-  blockId
+  blockId,
+  buildingType = 'apartment'
 }: FloorsConfigSectionProps) {
   const summary = calculateBuildingSummary(formData)
   
@@ -164,6 +166,7 @@ export function FloorsConfigSection({
             buildingName={buildingName || formData.buildingName}
             buildingLocation={buildingLocation || formData.location}
             blockId={blockId || formData.blockId}
+            buildingType={buildingType}
           />
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
+import { MobileMoneyPaymentDialog } from "./mobile-money-payment-dialog"
 import { 
   Home, 
   DollarSign, 
@@ -36,6 +37,7 @@ interface ReservePropertyDialogProps {
   propertyTitle: string
   propertyLocation: string
   monthlyRent: number // in cents
+  propertyCode: string // 10-digit unique identifier
   triggerButton?: React.ReactNode
 }
 
@@ -44,6 +46,7 @@ export function ReservePropertyDialog({
   propertyTitle,
   propertyLocation,
   monthlyRent,
+  propertyCode,
   triggerButton,
 }: ReservePropertyDialogProps) {
   const [open, setOpen] = useState(false)
@@ -54,6 +57,7 @@ export function ReservePropertyDialog({
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [reservationDetails, setReservationDetails] = useState<any>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -158,18 +162,20 @@ export function ReservePropertyDialog({
     }
 
     // Success!
-    setReservationDetails(data)
+    setReservationDetails({
+      ...data,
+      reservationId: data.id,
+      reservationNumber: data.reservation_number,
+      expiresAt: format(new Date(data.expires_at), "PPP"),
+      amount: data.reservation_amount,
+      paymentMethod: data.payment_method,
+    })
     setIsSuccess(true)
 
-    toast.success("Reservation created successfully!", {
+    toast({
+      title: "Success!",
       description: `Your reservation number is ${data.reservation_number}`,
     })
-
-    // Redirect to tenant dashboard after 3 seconds
-    setTimeout(() => {
-      router.push("/tenant/visits")
-      router.refresh()
-    }, 3000)
   }
 
   // Format price
@@ -297,24 +303,42 @@ export function ReservePropertyDialog({
             </div>
 
             {reservationDetails && (
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Reservation Number</span>
-                  <Badge variant="outline" className="font-mono">
-                    {reservationDetails.reservation_number}
-                  </Badge>
+              <div className="space-y-4">
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Reservation Number</span>
+                    <Badge variant="outline" className="font-mono">
+                      {reservationDetails.reservationNumber}
+                    </Badge>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Property Code</span>
+                    <Badge variant="outline" className="font-mono text-lg">
+                      {propertyCode}
+                    </Badge>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Amount</span>
+                    <span className="font-semibold">UGX {formattedAmount}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Expires</span>
+                    <span className="font-medium">{reservationDetails.expiresAt}</span>
+                  </div>
                 </div>
-                <Separator />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Amount</span>
-                  <span className="font-semibold">UGX {formattedAmount}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Expires</span>
-                  <span className="font-medium">
-                    {format(new Date(reservationDetails.expires_at), "MMM d, yyyy")}
-                  </span>
-                </div>
+
+                {reservationDetails.paymentMethod === 'mobile_money' && (
+                  <Button 
+                    onClick={() => setShowPaymentDialog(true)}
+                    className="w-full gap-2"
+                    size="lg"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Pay with Mobile Money
+                  </Button>
+                )}
               </div>
             )}
 
@@ -324,17 +348,24 @@ export function ReservePropertyDialog({
                 <div className="text-sm text-left">
                   <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">Next Steps:</p>
                   <ul className="space-y-1 text-blue-700 dark:text-blue-300 text-xs">
-                    <li>• Complete payment using your preferred method</li>
-                    <li>• Check your email for payment instructions</li>
+                    <li>• Complete payment using Mobile Money if you selected it</li>
+                    <li>• Use Property Code: <strong>{propertyCode}</strong> for payment reference</li>
                     <li>• Track your reservation in the tenant dashboard</li>
                   </ul>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Redirecting to your dashboard...
-            </p>
+            <Button
+              onClick={() => {
+                setOpen(false)
+                router.push("/tenant/visits")
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              Go to Dashboard
+            </Button>
           </div>
         ) : (
           /* Reservation Form */
@@ -538,6 +569,26 @@ export function ReservePropertyDialog({
           </>
         )}
       </DialogContent>
+
+      {/* Mobile Money Payment Dialog */}
+      {reservationDetails && showPaymentDialog && (
+        <MobileMoneyPaymentDialog
+          open={showPaymentDialog}
+          onOpenChange={setShowPaymentDialog}
+          amount={reservationDetails.amount / 100}
+          propertyCode={propertyCode}
+          propertyTitle={propertyTitle}
+          reservationId={reservationDetails.reservationId}
+          onSuccess={(transactionId) => {
+            toast({
+              title: "Payment Successful!",
+              description: "Your reservation has been confirmed",
+            })
+            setOpen(false)
+            setShowPaymentDialog(false)
+          }}
+        />
+      )}
     </Dialog>
   )
 }

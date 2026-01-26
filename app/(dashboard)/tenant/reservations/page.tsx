@@ -42,13 +42,13 @@ export default async function TenantReservationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="relative">
+    <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="relative mb-6 md:mb-8">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-purple-500/10 to-transparent rounded-lg blur-3xl -z-10" />
-        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-purple-600 bg-clip-text text-transparent">
           My Reservations
         </h1>
-        <p className="text-muted-foreground mt-2 text-lg">
+        <p className="text-muted-foreground mt-2 text-base md:text-lg">
           View and manage your property reservations
         </p>
       </div>

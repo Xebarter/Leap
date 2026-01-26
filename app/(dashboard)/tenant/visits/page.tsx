@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
-import { TenantSidebar } from "@/components/tenantView/tenant-sidebar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { redirect } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, MapPin, Phone, Mail, Home, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
@@ -15,17 +15,7 @@ export default async function TenantVisitsPage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return (
-      <div className="flex min-h-screen bg-background">
-        <TenantSidebar user={{ email: "guest@example.com", user_metadata: { full_name: "Guest" } }} />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold mb-4">My Property Visits</h1>
-            <p className="text-muted-foreground">Please sign in to view your scheduled visits.</p>
-          </div>
-        </main>
-      </div>
-    )
+    redirect("/auth/login")
   }
 
   // Fetch visit bookings for the user
@@ -149,17 +139,14 @@ export default async function TenantVisitsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <TenantSidebar user={user} />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">My Property Visits</h1>
-            <p className="text-muted-foreground mt-1">View and manage your scheduled property visits</p>
-          </div>
+    <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Property Visits</h1>
+        <p className="text-muted-foreground mt-2">View and manage your scheduled property visits</p>
+      </div>
 
-          {/* Upcoming Visits */}
-          <div className="mb-8">
+      {/* Upcoming Visits */}
+      <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Upcoming Visits</h2>
             {upcomingVisits.length > 0 ? (
               <div className="space-y-4">
@@ -180,19 +167,17 @@ export default async function TenantVisitsPage() {
             )}
           </div>
 
-          {/* Past Visits */}
-          {pastVisits.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Past Visits</h2>
-              <div className="space-y-4">
-                {pastVisits.map((visit) => (
-                  <VisitCard key={visit.id} visit={visit} />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Past Visits */}
+      {pastVisits.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Past Visits</h2>
+          <div className="space-y-4">
+            {pastVisits.map((visit) => (
+              <VisitCard key={visit.id} visit={visit} />
+            ))}
+          </div>
         </div>
-      </main>
+      )}
     </div>
   )
 }

@@ -8,17 +8,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus } from "lucide-react"
 
-export function ReferenceForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
+interface ReferenceFormProps {
+  onSubmit?: (data: any) => void
+  editData?: any
+}
+
+export function ReferenceForm({ onSubmit, editData }: ReferenceFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    reference_type: "Employer",
-    reference_name: "",
-    reference_title: "",
-    reference_company: "",
-    reference_email: "",
-    reference_phone: "",
-    reference_address: "",
+    reference_type: editData?.reference_type || "Employer",
+    reference_name: editData?.reference_name || "",
+    reference_title: editData?.reference_title || "",
+    reference_company: editData?.reference_company || "",
+    reference_email: editData?.reference_email || "",
+    reference_phone: editData?.reference_phone || "",
+    reference_address: editData?.reference_address || "",
+  })
+
+  // Update form data when editData changes
+  useState(() => {
+    if (editData) {
+      setFormData({
+        reference_type: editData.reference_type || "Employer",
+        reference_name: editData.reference_name || "",
+        reference_title: editData.reference_title || "",
+        reference_company: editData.reference_company || "",
+        reference_email: editData.reference_email || "",
+        reference_phone: editData.reference_phone || "",
+        reference_address: editData.reference_address || "",
+      })
+    }
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,13 +46,42 @@ export function ReferenceForm({ onSubmit }: { onSubmit?: (data: any) => void }) 
     setLoading(true)
 
     try {
-      // TODO: Submit to API endpoint
-      console.log("Reference:", formData)
+      const url = editData 
+        ? "/api/tenant/references" 
+        : "/api/tenant/references"
       
-      if (onSubmit) {
-        onSubmit(formData)
+      const method = editData ? "PUT" : "POST"
+      
+      const payload = editData 
+        ? { ...formData, id: editData.id }
+        : formData
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save reference")
       }
 
+      // Show success message
+      alert(editData 
+        ? "Reference updated successfully!" 
+        : "Reference added successfully!"
+      )
+      
+      // Call parent callback if provided
+      if (onSubmit) {
+        onSubmit(data.reference)
+      }
+
+      // Reset form
       setFormData({
         reference_type: "Employer",
         reference_name: "",
@@ -43,8 +92,12 @@ export function ReferenceForm({ onSubmit }: { onSubmit?: (data: any) => void }) 
         reference_address: "",
       })
       setOpen(false)
-    } catch (error) {
-      console.error("Error adding reference:", error)
+      
+      // Reload page to show updated references
+      window.location.reload()
+    } catch (error: any) {
+      console.error("Error saving reference:", error)
+      alert(`Error: ${error.message || "Failed to save reference"}`)
     } finally {
       setLoading(false)
     }
@@ -53,13 +106,26 @@ export function ReferenceForm({ onSubmit }: { onSubmit?: (data: any) => void }) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add Reference</Button>
+        {editData ? (
+          <Button variant="outline" size="sm" className="flex-1">
+            <Plus className="w-3 h-3 mr-2" />
+            Edit
+          </Button>
+        ) : (
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Reference
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add Reference</DialogTitle>
+          <DialogTitle>{editData ? "Edit Reference" : "Add Reference"}</DialogTitle>
           <DialogDescription>
-            Add a reference contact that can verify your information and background.
+            {editData 
+              ? "Update your reference contact information."
+              : "Add a reference contact that can verify your information and background."
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -160,7 +226,10 @@ export function ReferenceForm({ onSubmit }: { onSubmit?: (data: any) => void }) 
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Reference"}
+              {loading 
+                ? (editData ? "Updating..." : "Adding...") 
+                : (editData ? "Update Reference" : "Add Reference")
+              }
             </Button>
           </div>
         </form>
