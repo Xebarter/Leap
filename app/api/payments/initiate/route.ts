@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       description,
       reservationId,
       bookingId,
+      propertyId,
+      monthsPaid,
     } = body
 
     // Validate required fields
@@ -81,6 +83,8 @@ export async function POST(request: NextRequest) {
         booking_id: bookingId,
         tenant_id: user.id,
         property_code: propertyCode,
+        property_id: propertyId,
+        months_paid: monthsPaid,
         amount_paid_ugx: parseInt(amount),
         currency: 'UGX',
         payment_date: new Date(),

@@ -51,6 +51,27 @@ export class MTNMomoService {
    */
   async initiatePayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
+      // SANDBOX MODE: Auto-approve payments for testing
+      if (PAYMENT_CONFIG.mtn.environment === 'sandbox') {
+        const referenceId = uuidv4()
+        const externalId = generateTransactionReference(request.propertyCode)
+        
+        console.log('🔧 SANDBOX MODE: Auto-approving MTN payment', {
+          amount: request.amount,
+          phone: request.phoneNumber,
+          propertyCode: request.propertyCode,
+        })
+
+        return {
+          success: true,
+          transactionId: externalId,
+          providerTransactionId: referenceId,
+          status: 'successful',
+          message: 'Payment completed successfully (Sandbox mode - auto-approved).',
+        }
+      }
+
+      // PRODUCTION MODE: Normal flow
       const token = await this.getAccessToken()
       const { baseUrl, collectionPrimaryKey, currency, callbackUrl } = PAYMENT_CONFIG.mtn
 
@@ -73,18 +94,25 @@ export class MTNMomoService {
         payeeNote: `Property payment - Ref: ${request.propertyCode}`,
       }
 
+      // Build headers - omit callback URL in sandbox to avoid validation errors
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Reference-Id': referenceId,
+        'X-Target-Environment': PAYMENT_CONFIG.mtn.environment === 'sandbox' ? 'sandbox' : 'production',
+        'Ocp-Apim-Subscription-Key': collectionPrimaryKey,
+      }
+
+      // Only include callback URL in production (sandbox doesn't fire callbacks anyway)
+      if (PAYMENT_CONFIG.mtn.environment === 'production' && callbackUrl) {
+        headers['X-Callback-Url'] = callbackUrl
+      }
+
       const response = await fetch(
         `${baseUrl}/collection/v1_0/requesttopay`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'X-Reference-Id': referenceId,
-            'X-Target-Environment': PAYMENT_CONFIG.mtn.environment === 'sandbox' ? 'sandbox' : 'production',
-            'Ocp-Apim-Subscription-Key': collectionPrimaryKey,
-            'X-Callback-Url': callbackUrl,
-          },
+          headers,
           body: JSON.stringify(payload),
         }
       )

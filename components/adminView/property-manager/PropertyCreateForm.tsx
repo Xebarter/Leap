@@ -38,6 +38,13 @@ export function PropertyCreateForm({
   const [propertyBathrooms, setPropertyBathrooms] = useState<number>(property?.bathrooms ?? 1);
   const [selectedCategory, setSelectedCategory] = useState<string>(property?.category ?? '');
   const [buildingName, setBuildingName] = useState<string>('')
+  const [landlords, setLandlords] = useState<any[]>([])
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string>(property?.landlord_id ?? '')
+
+  // Load landlords on component mount
+  useEffect(() => {
+    loadLandlords();
+  }, []);
 
   // Load property details when editing
   useEffect(() => {
@@ -45,6 +52,31 @@ export function PropertyCreateForm({
       loadPropertyDetails();
     }
   }, [property?.id]);
+
+  const loadLandlords = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("landlord_profiles")
+        .select(`
+          id,
+          user_id,
+          business_name,
+          profiles:user_id (
+            full_name,
+            email
+          )
+        `)
+        .eq("status", "active")
+        .order("business_name");
+
+      if (!error && data) {
+        setLandlords(data);
+      }
+    } catch (error) {
+      console.error("Error loading landlords:", error);
+    }
+  };
 
   const loadPropertyDetails = async () => {
     if (!property?.id) return;
@@ -159,6 +191,11 @@ export function PropertyCreateForm({
       formData.set("existing_block_id", selectedBlockId)
     }
 
+    // Add landlord_id if selected
+    if (selectedLandlordId) {
+      formData.set("landlord_id", selectedLandlordId)
+    }
+
     onSubmit(formData)
   }
 
@@ -191,6 +228,35 @@ export function PropertyCreateForm({
               {selectedCategory === 'Apartment' 
                 ? "Each unit type will become its own property listing with separate images, pricing, and details"
                 : "Select \"Apartment\" to configure building floors and units"}
+            </p>
+          </div>
+        </div>
+
+        {/* Landlord Selection */}
+        <div className="grid gap-4">
+          <h3 className="text-sm font-medium">Property Owner</h3>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="landlord_id">Landlord/Owner (Optional)</Label>
+            <Select 
+              name="landlord_id" 
+              value={selectedLandlordId} 
+              onValueChange={setSelectedLandlordId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select landlord (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None - Unassigned</SelectItem>
+                {landlords.map((landlord) => (
+                  <SelectItem key={landlord.id} value={landlord.id}>
+                    {landlord.business_name || landlord.profiles?.full_name || landlord.profiles?.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Assign this property to a specific landlord for ownership tracking and commission management
             </p>
           </div>
         </div>
@@ -301,17 +367,37 @@ export function PropertyCreateForm({
             <div className="grid gap-4">
               <h3 className="text-sm font-medium">Deposit Policy</h3>
               <div className="grid gap-2 max-w-xs">
-                <Label htmlFor="minimum_initial_months">Minimum Initial Deposit (Months) *</Label>
-                <Input
-                  id="minimum_initial_months"
-                  name="minimum_initial_months"
-                  type="number"
-                  min="1"
-                  defaultValue={property?.minimum_initial_months || '1'}
-                  required
-                />
+                <Label htmlFor="minimum_initial_months">
+                  {selectedCategory === 'hostel' ? 'Minimum Initial Deposit' : 'Minimum Initial Deposit (Months)'} *
+                </Label>
+                {selectedCategory === 'hostel' ? (
+                  <Select 
+                    name="minimum_initial_months" 
+                    defaultValue={property?.minimum_initial_months?.toString() || '1'}
+                    required
+                  >
+                    <SelectTrigger id="minimum_initial_months">
+                      <SelectValue placeholder="Select deposit period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Half Semester</SelectItem>
+                      <SelectItem value="2">Full Semester</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="minimum_initial_months"
+                    name="minimum_initial_months"
+                    type="number"
+                    min="1"
+                    defaultValue={property?.minimum_initial_months || '1'}
+                    required
+                  />
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Applies to all unit types in this building
+                  {selectedCategory === 'hostel' 
+                    ? 'Choose whether students pay for half or full semester upfront'
+                    : 'Applies to all unit types in this building'}
                 </p>
               </div>
             </div>
@@ -425,14 +511,31 @@ export function PropertyCreateForm({
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="minimum_initial_months">Minimum Initial Deposit (Months)</Label>
-                  <Input
-                    id="minimum_initial_months"
-                    name="minimum_initial_months"
-                    type="number"
-                    min="1"
-                    defaultValue={property?.minimum_initial_months || '1'}
-                  />
+                  <Label htmlFor="minimum_initial_months">
+                    {selectedCategory === 'hostel' ? 'Minimum Initial Deposit' : 'Minimum Initial Deposit (Months)'}
+                  </Label>
+                  {selectedCategory === 'hostel' ? (
+                    <Select 
+                      name="minimum_initial_months" 
+                      defaultValue={property?.minimum_initial_months?.toString() || '1'}
+                    >
+                      <SelectTrigger id="minimum_initial_months">
+                        <SelectValue placeholder="Select deposit period" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Half Semester</SelectItem>
+                        <SelectItem value="2">Full Semester</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="minimum_initial_months"
+                      name="minimum_initial_months"
+                      type="number"
+                      min="1"
+                      defaultValue={property?.minimum_initial_months || '1'}
+                    />
+                  )}
                 </div>
               </div>
             </div>

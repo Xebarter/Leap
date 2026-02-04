@@ -19,6 +19,7 @@ export interface Unit {
   floor: number
   type: string // e.g., "1BR", "2BR", "Studio", "3BR"
   isAvailable: boolean
+  is_occupied?: boolean // Whether the unit is currently occupied (paid for)
   price?: number
   area?: number
   bedrooms?: number
@@ -47,40 +48,46 @@ export interface BuildingBlockVisualizationProps {
 }
 
 // Color palette for different unit types
-const unitTypeColors: Record<string, { available: string; taken: string; border: string; text: string }> = {
+const unitTypeColors: Record<string, { available: string; taken: string; occupied: string; border: string; text: string }> = {
   'Studio': {
     available: 'bg-emerald-100 hover:bg-emerald-200',
     taken: 'bg-emerald-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-emerald-500',
     text: 'text-emerald-700'
   },
   '1BR': {
     available: 'bg-blue-100 hover:bg-blue-200',
     taken: 'bg-blue-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-blue-500',
     text: 'text-blue-700'
   },
   '2BR': {
     available: 'bg-purple-100 hover:bg-purple-200',
     taken: 'bg-purple-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-purple-500',
     text: 'text-purple-700'
   },
   '3BR': {
     available: 'bg-amber-100 hover:bg-amber-200',
     taken: 'bg-amber-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-amber-500',
     text: 'text-amber-700'
   },
   '4BR': {
     available: 'bg-rose-100 hover:bg-rose-200',
     taken: 'bg-rose-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-rose-500',
     text: 'text-rose-700'
   },
   'Penthouse': {
     available: 'bg-indigo-100 hover:bg-indigo-200',
     taken: 'bg-indigo-400/50',
+    occupied: 'bg-gray-300',
     border: 'border-indigo-500',
     text: 'text-indigo-700'
   },
@@ -90,6 +97,7 @@ const unitTypeColors: Record<string, { available: string; taken: string; border:
 const defaultColor = {
   available: 'bg-gray-100 hover:bg-gray-200',
   taken: 'bg-gray-400/50',
+  occupied: 'bg-gray-300',
   border: 'border-gray-500',
   text: 'text-gray-700'
 }
@@ -113,8 +121,8 @@ export function BuildingBlockVisualization({
     // Toggle selected unit
     setSelectedUnit(selectedUnit?.id === unit.id ? null : unit)
     
-    // If onUnitClick is provided and unit has a different property_id, call it
-    if (onUnitClick && unit.property_id && unit.property_id !== currentPropertyId) {
+    // Always call onUnitClick if provided (not just for different properties)
+    if (onUnitClick) {
       onUnitClick(unit)
     }
   }
@@ -281,6 +289,14 @@ export function BuildingBlockVisualization({
             </div>
             <span className="text-muted-foreground">Taken</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded border-2 border-gray-500 bg-gray-300 opacity-40 relative">
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="w-3 h-0.5 bg-gray-600 rotate-45 absolute"></div>
+              </div>
+            </div>
+            <span className="text-muted-foreground">Occupied (Paid)</span>
+          </div>
         </div>
 
         {/* Building Visualization */}
@@ -311,25 +327,28 @@ export function BuildingBlockVisualization({
                         floorUnits.map(unit => {
                           const colors = getUnitColor(unit.type)
                           const isHighlighted = hoveredType === null || hoveredType === unit.type
+                          const isOccupied = unit.is_occupied === true
+                          const isClickable = !isOccupied
                           
                           return (
                             <Tooltip key={unit.id}>
                               <TooltipTrigger asChild>
                                 <button
-                                  onClick={() => handleUnitClick(unit)}
+                                  onClick={() => isClickable && handleUnitClick(unit)}
+                                  disabled={isOccupied}
                                   className={`
                                     flex-1 min-w-[40px] h-10 rounded-sm border-2 transition-all relative
-                                    ${unit.isAvailable ? colors.available : colors.taken}
+                                    ${isOccupied ? colors.occupied : (unit.isAvailable ? colors.available : colors.taken)}
                                     ${colors.border}
-                                    ${!unit.isAvailable ? 'opacity-50' : 'cursor-pointer'}
+                                    ${isOccupied ? 'opacity-40 cursor-not-allowed' : (!unit.isAvailable ? 'opacity-50' : 'cursor-pointer')}
                                     ${!isHighlighted ? 'opacity-30' : ''}
                                     ${selectedUnit?.id === unit.id ? 'ring-2 ring-primary ring-offset-1' : ''}
                                   `}
                                 >
-                                  <span className={`text-[10px] font-medium ${colors.text}`}>
+                                  <span className={`text-[10px] font-medium ${isOccupied ? 'text-gray-500' : colors.text}`}>
                                     {unit.unitNumber}
                                   </span>
-                                  {!unit.isAvailable && (
+                                  {(isOccupied || !unit.isAvailable) && (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                       <div className="w-full h-0.5 bg-slate-500/50 rotate-45"></div>
                                     </div>
@@ -348,8 +367,8 @@ export function BuildingBlockVisualization({
                                   <p className="text-muted-foreground">{unit.type} • Floor {unit.floor}</p>
                                   {unit.area && <p>{unit.area} m²</p>}
                                   {unit.price && <p className="font-medium text-primary">{new Intl.NumberFormat('en-US').format(unit.price)} UGX/mo</p>}
-                                  <Badge variant={unit.isAvailable ? "default" : "secondary"} className="text-[10px]">
-                                    {unit.isAvailable ? "Available" : "Taken"}
+                                  <Badge variant={isOccupied ? "destructive" : (unit.isAvailable ? "default" : "secondary")} className="text-[10px]">
+                                    {isOccupied ? "Occupied" : (unit.isAvailable ? "Available" : "Taken")}
                                   </Badge>
                                 </div>
                               </TooltipContent>

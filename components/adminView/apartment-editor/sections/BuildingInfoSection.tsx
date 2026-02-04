@@ -84,23 +84,38 @@ export function BuildingInfoSection({ formData, errors, onUpdate, onBlur }: Buil
           {/* Minimum Initial Months */}
           <div className="space-y-2">
             <Label htmlFor="minimumInitialMonths" className="text-sm font-medium">
-              Minimum Deposit (Months) <span className="text-destructive">*</span>
+              {formData.buildingType === 'hostel' ? 'Minimum Initial Deposit' : 'Minimum Deposit (Months)'} <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="minimumInitialMonths"
-              type="number"
-              min={1}
-              max={24}
-              value={formData.minimumInitialMonths}
-              onChange={(e) => onUpdate('minimumInitialMonths', parseInt(e.target.value) || 1)}
-              onBlur={() => onBlur('minimumInitialMonths')}
-              className={`max-w-[200px] ${errors.minimumInitialMonths ? 'border-destructive' : ''}`}
-            />
+            {formData.buildingType === 'hostel' ? (
+              <select
+                id="minimumInitialMonths"
+                value={formData.minimumInitialMonths}
+                onChange={(e) => onUpdate('minimumInitialMonths', parseInt(e.target.value))}
+                onBlur={() => onBlur('minimumInitialMonths')}
+                className={`flex h-10 w-full max-w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${errors.minimumInitialMonths ? 'border-destructive' : ''}`}
+              >
+                <option value="1">Half Semester</option>
+                <option value="2">Full Semester</option>
+              </select>
+            ) : (
+              <Input
+                id="minimumInitialMonths"
+                type="number"
+                min={1}
+                max={24}
+                value={formData.minimumInitialMonths}
+                onChange={(e) => onUpdate('minimumInitialMonths', parseInt(e.target.value) || 1)}
+                onBlur={() => onBlur('minimumInitialMonths')}
+                className={`max-w-[200px] ${errors.minimumInitialMonths ? 'border-destructive' : ''}`}
+              />
+            )}
             {errors.minimumInitialMonths ? (
               <p className="text-sm text-destructive">{errors.minimumInitialMonths}</p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Number of months rent required as initial deposit (applies to all units)
+                {formData.buildingType === 'hostel' 
+                  ? 'Choose whether students pay for half or full semester upfront'
+                  : 'Number of months rent required as initial deposit (applies to all units)'}
               </p>
             )}
           </div>

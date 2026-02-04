@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import { format, differenceInDays, isAfter, isBefore, startOfDay, endOfDay } from "date-fns"
+import { MobileMoneyPaymentDialog } from "@/components/publicView/mobile-money-payment-dialog"
 import { 
   Home, 
   MapPin, 
@@ -34,21 +38,28 @@ import {
   TrendingUp,
   Activity,
   FileText,
-  X
+  X,
+  Trash2
 } from "lucide-react"
 
 interface TenantReservationsViewProps {
   reservations: any[]
 }
 
-export function TenantReservationsView({ reservations }: TenantReservationsViewProps) {
+export function TenantReservationsView({ reservations: initialReservations }: TenantReservationsViewProps) {
+  const [reservations, setReservations] = useState(initialReservations)
   const [selectedReservation, setSelectedReservation] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortBy, setSortBy] = useState("date-desc")
   const [activeTab, setActiveTab] = useState("all")
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const { toast } = useToast()
+  const router = useRouter()
 
   // Statistics
   const stats = useMemo(() => {
@@ -82,8 +93,6 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
         filtered = filtered.filter(r => r.status === 'confirmed' || r.status === 'pending')
       } else if (activeTab === "completed") {
         filtered = filtered.filter(r => r.status === 'completed')
-      } else if (activeTab === "cancelled") {
-        filtered = filtered.filter(r => r.status === 'cancelled' || r.status === 'expired')
       }
     }
 
@@ -119,9 +128,6 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
   )
   const completedReservations = reservations.filter(r => 
     r.status === 'completed'
-  )
-  const cancelledReservations = reservations.filter(r => 
-    r.status === 'cancelled' || r.status === 'expired'
   )
 
   // Get status badge
@@ -174,19 +180,80 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
     setCancelDialogOpen(true)
   }
 
+  // Open payment dialog
+  const openPaymentDialog = (reservation: any) => {
+    setSelectedReservation(reservation)
+    setPaymentDialogOpen(true)
+  }
+
+  // Handle payment success
+  const handlePaymentSuccess = (transactionId: string) => {
+    // Update the reservation in the local state
+    setReservations(prev => prev.map(r => 
+      r.id === selectedReservation?.id 
+        ? { ...r, payment_status: 'paid', status: 'confirmed' }
+        : r
+    ))
+    
+    setPaymentDialogOpen(false)
+    setDetailsOpen(false)
+    
+    toast({
+      title: "Payment Successful!",
+      description: "Your reservation has been confirmed.",
+      variant: "default",
+    })
+    
+    // Refresh the page to get updated data
+    router.refresh()
+  }
+
   // Handle cancel reservation
   const handleCancelReservation = async () => {
     if (!selectedReservation) return
     
+    setIsCancelling(true)
+    const reservationId = selectedReservation.id
+    
     try {
-      // TODO: Implement API call to cancel reservation
-      console.log("Cancelling reservation:", selectedReservation.id)
+      const response = await fetch(`/api/reservations/${reservationId}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to cancel reservation")
+      }
+
+      // Set the removing ID to trigger fade-out animation
+      setRemovingId(reservationId)
+      
+      // Close dialog immediately
       setCancelDialogOpen(false)
       setSelectedReservation(null)
-      // Show success message
+
+      // Wait for animation to complete, then remove from state
+      setTimeout(() => {
+        setReservations(prev => prev.filter(r => r.id !== reservationId))
+        setRemovingId(null)
+        
+        toast({
+          title: "Reservation Cancelled",
+          description: "Your reservation has been successfully cancelled.",
+          variant: "default",
+        })
+      }, 300) // Match animation duration
+
     } catch (error) {
       console.error("Error cancelling reservation:", error)
-      // Show error message
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to cancel reservation. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -210,7 +277,8 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
 
   const ReservationCard = ({ reservation }: { reservation: any }) => {
     const daysLeft = getDaysUntilExpiry(reservation.expires_at)
-    const canCancel = reservation.status === 'pending' || reservation.status === 'confirmed'
+    const canCancel = (reservation.status === 'pending' || reservation.status === 'confirmed') && 
+                      (reservation.payment_status === 'pending' || reservation.payment_status === 'failed')
     
     // Get status color scheme
     const getStatusColor = (status: string) => {
@@ -225,49 +293,88 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
     }
     
     return (
-      <Card className={`group relative overflow-hidden hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/30 hover:-translate-y-1 bg-gradient-to-br ${getStatusColor(reservation.status)}`}>
+      <Card className={`group relative overflow-hidden hover:shadow-2xl transition-all duration-500 border-2 hover:border-primary/30 hover:-translate-y-2 bg-gradient-to-br ${getStatusColor(reservation.status)}`}>
         {/* Decorative gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent dark:from-white/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent dark:from-white/5 pointer-events-none group-hover:from-white/70 transition-all duration-500" />
         
-        <CardContent className="p-6 relative">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="relative h-14 w-14 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/20 group-hover:shadow-xl group-hover:shadow-primary/30 transition-shadow duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-                <Home className="h-7 w-7 text-white relative z-10" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">{reservation.properties?.title}</h3>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="line-clamp-1">{reservation.properties?.location}</span>
+        {/* Delete button - top right corner */}
+        {canCancel && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-3 right-3 z-20 h-8 w-8 rounded-full bg-destructive/10 hover:bg-destructive hover:text-white text-destructive border border-destructive/20 hover:border-destructive opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-110"
+            onClick={() => openCancelDialog(reservation)}
+            title="Delete Reservation"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+        
+        <CardContent className="p-0 relative">
+          {/* Property Image */}
+          <div className="relative h-48 w-full overflow-hidden rounded-t-lg">
+            {(() => {
+              // Get the image URL - prioritize property_images, then fallback to image_url
+              const propertyImages = reservation.properties?.property_images
+              const primaryImage = propertyImages?.find((img: any) => img.is_primary)?.image_url
+              const firstImage = propertyImages?.[0]?.image_url
+              const fallbackImage = reservation.properties?.image_url
+              const imageUrl = primaryImage || firstImage || fallbackImage
+
+              return imageUrl ? (
+                <Image
+                  src={imageUrl}
+                  alt={reservation.properties?.title || "Property"}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/70 flex items-center justify-center">
+                  <Home className="h-16 w-16 text-white opacity-50" />
                 </div>
-                <Badge variant="outline" className="font-mono text-xs bg-background/50 backdrop-blur-sm">
-                  {reservation.reservation_number}
-                </Badge>
-              </div>
+              )
+            })()}
+            {/* Overlay gradient for better text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            
+            {/* Reservation number badge on image */}
+            <div className="absolute top-3 left-3 z-10">
+              <Badge variant="secondary" className="font-mono text-xs bg-background/90 backdrop-blur-sm border border-white/20">
+                {reservation.reservation_number}
+              </Badge>
             </div>
           </div>
 
-          <Separator className="my-4 bg-gradient-to-r from-transparent via-border to-transparent" />
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 p-3 border border-green-500/20">
-              <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                Amount
-              </p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">UGX</span>
-                <span className="text-xl font-bold text-green-600 dark:text-green-400">{(reservation.reservation_amount / 100).toLocaleString()}</span>
+          {/* Card Content */}
+          <div className="p-6">
+            <div className="mb-4">
+              <h3 className="font-bold text-xl mb-2 line-clamp-1 group-hover:text-primary transition-colors">{reservation.properties?.title}</h3>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="line-clamp-1">{reservation.properties?.location}</span>
               </div>
             </div>
-            <div className="rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-3 border border-blue-500/20">
+
+          <Separator className="my-4 bg-gradient-to-r from-transparent via-border to-transparent" />
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 p-3 border border-green-500/20 min-w-0">
               <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                Reserved
+                <DollarSign className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">Amount</span>
               </p>
-              <div className="text-sm font-semibold">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="text-sm font-bold text-green-600 dark:text-green-400">UGX</span>
+                <span className="text-base font-bold text-green-600 dark:text-green-400 break-all">{(reservation.reservation_amount / 100).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-3 border border-blue-500/20 min-w-0">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Calendar className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">Reserved</span>
+              </p>
+              <div className="text-sm font-semibold break-words">
                 {format(new Date(reservation.reserved_at), "MMM d, yyyy")}
               </div>
             </div>
@@ -304,15 +411,19 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
           )}
 
           {reservation.payment_status === 'pending' && (
-            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-2 border-amber-500/30 rounded-xl p-4 mb-4 backdrop-blur-sm animate-pulse">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl" />
+            <div 
+              className="relative overflow-hidden bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-2 border-amber-500/30 rounded-xl p-4 mb-4 backdrop-blur-sm animate-pulse cursor-pointer hover:border-amber-500/50 hover:shadow-lg transition-all duration-300 group"
+              onClick={() => openPaymentDialog(reservation)}
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:blur-xl transition-all duration-300" />
               <div className="flex items-start gap-3 relative">
-                <div className="h-10 w-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-lg">
-                  <Info className="h-5 w-5 text-white" />
+                <div className="h-10 w-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <CreditCard className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold text-amber-900 dark:text-amber-100 mb-1">
+                  <p className="font-bold text-amber-900 dark:text-amber-100 mb-1 flex items-center gap-2">
                     Payment Required
+                    <span className="text-xs font-normal opacity-75">Click to pay</span>
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
                     Complete your payment to confirm this reservation
@@ -323,14 +434,25 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
           )}
 
           <div className="space-y-2">
-            <Button 
-              variant="default" 
-              className="w-full gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
-              onClick={() => viewDetails(reservation)}
-            >
-              <Eye className="h-4 w-4" />
-              View Full Details
-            </Button>
+            {reservation.payment_status === 'pending' ? (
+              <Button 
+                variant="default" 
+                className="w-full gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/30 transition-all duration-300 animate-pulse hover:animate-none"
+                onClick={() => openPaymentDialog(reservation)}
+              >
+                <CreditCard className="h-4 w-4" />
+                Pay Now
+              </Button>
+            ) : (
+              <Button 
+                variant="default" 
+                className="w-full gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
+                onClick={() => viewDetails(reservation)}
+              >
+                <Eye className="h-4 w-4" />
+                View Full Details
+              </Button>
+            )}
             
             <div className="grid grid-cols-2 gap-2">
               {reservation.payment_status === 'paid' && (
@@ -342,6 +464,17 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
                 >
                   <Download className="h-3.5 w-3.5" />
                   Receipt
+                </Button>
+              )}
+              {reservation.payment_status === 'pending' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-200"
+                  onClick={() => viewDetails(reservation)}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Details
                 </Button>
               )}
               <Button 
@@ -366,6 +499,7 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
               )}
             </div>
           </div>
+          </div>
         </CardContent>
       </Card>
     )
@@ -373,28 +507,101 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
 
   if (reservations.length === 0) {
     return (
-      <Card className="relative overflow-hidden border-2 border-dashed border-primary/30 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl" />
-        <CardContent className="flex flex-col items-center justify-center py-20 relative">
-          <div className="relative mb-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary to-purple-500 rounded-full blur-xl opacity-30 animate-pulse" />
-            <div className="relative rounded-full bg-gradient-to-br from-primary via-primary/80 to-purple-500 p-8 shadow-2xl shadow-primary/30">
-              <Shield className="h-16 w-16 text-white" />
-            </div>
-          </div>
-          <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">No reservations yet</h3>
-          <p className="text-muted-foreground text-center max-w-md mb-10 text-lg">
-            When you reserve a property, it will appear here. Browse our available properties and secure your favorite one today!
-          </p>
-          <Button size="lg" asChild className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-xl shadow-primary/30 hover:shadow-2xl hover:shadow-primary/40 transition-all duration-300 h-12 px-8">
-            <a href="/properties">
-              <Home className="h-5 w-5" />
-              Browse Properties
-            </a>
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="min-h-[60vh] flex items-center justify-center p-8">
+        <div className="max-w-2xl w-full">
+          <Card className="relative overflow-hidden border-none shadow-2xl bg-background">
+            {/* Animated background elements */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            
+            <CardContent className="relative p-12 flex flex-col items-center text-center">
+              {/* Enhanced icon container */}
+              <div className="relative mb-10">
+                {/* Animated subtle pulse glow */}
+                <div className="absolute inset-0 bg-primary/30 rounded-3xl blur-3xl animate-pulse" style={{ animationDuration: '3s' }} />
+                
+                {/* Icon container with enhanced styling */}
+                <div className="relative bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-10 shadow-2xl transform hover:scale-105 transition-transform duration-300">
+                  {/* Shine effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-transparent rounded-3xl" />
+                  
+                  {/* Decorative corner accents */}
+                  <div className="absolute top-2 right-2 w-3 h-3 bg-white/30 rounded-full" />
+                  <div className="absolute bottom-2 left-2 w-2 h-2 bg-white/20 rounded-full" />
+                  
+                  {/* Icon */}
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute inset-0 bg-white/10 rounded-full blur-xl" />
+                    <FileText className="h-20 w-20 text-white relative z-10 drop-shadow-lg" strokeWidth={1.5} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced heading with better styling */}
+              <div className="mb-8">
+                <h2 className="text-4xl md:text-5xl font-bold mb-3 text-foreground tracking-tight">
+                  No Reservations Yet
+                </h2>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="h-px w-12 bg-gradient-to-r from-transparent to-primary" />
+                  <div className="h-1 w-1 rounded-full bg-primary" />
+                  <div className="h-px w-12 bg-gradient-to-l from-transparent to-primary" />
+                </div>
+              </div>
+              
+              {/* Enhanced subheading */}
+              <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl leading-relaxed px-4">
+                Start your journey by browsing our curated collection of properties and reserve your dream home today!
+              </p>
+
+              {/* Feature highlights */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 w-full">
+                <div className="flex flex-col items-center p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 hover:scale-105 transition-transform duration-300">
+                  <div className="bg-blue-500 rounded-full p-3 mb-3">
+                    <Eye className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm mb-1">Browse Properties</h3>
+                  <p className="text-xs text-muted-foreground text-center">View hundreds of listings</p>
+                </div>
+                
+                <div className="flex flex-col items-center p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:scale-105 transition-transform duration-300">
+                  <div className="bg-purple-500 rounded-full p-3 mb-3">
+                    <Shield className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm mb-1">Secure Booking</h3>
+                  <p className="text-xs text-muted-foreground text-center">Reserve with confidence</p>
+                </div>
+                
+                <div className="flex flex-col items-center p-4 rounded-xl bg-green-500/10 border border-green-500/20 hover:scale-105 transition-transform duration-300">
+                  <div className="bg-green-500 rounded-full p-3 mb-3">
+                    <CheckCircle2 className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm mb-1">Easy Process</h3>
+                  <p className="text-xs text-muted-foreground text-center">Quick & hassle-free</p>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <Button 
+                size="lg" 
+                asChild 
+                className="gap-3 bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/40 hover:shadow-3xl hover:shadow-primary/50 transition-all duration-300 h-14 px-10 text-lg font-semibold animate-pulse hover:animate-none group"
+              >
+                <a href="/properties">
+                  <Home className="h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
+                  Explore Properties
+                  <span className="ml-2">→</span>
+                </a>
+              </Button>
+
+              {/* Helper text */}
+              <p className="text-xs text-muted-foreground mt-6">
+                💡 Tip: Reserve early to secure the best properties!
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     )
   }
 
@@ -402,63 +609,63 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
     <>
       <div className="space-y-6">
         {/* Statistics Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="relative overflow-hidden border-2 hover:border-blue-500/30 transition-all duration-300 hover:shadow-lg bg-gradient-to-br from-blue-500/5 to-transparent">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="relative overflow-hidden border-2 hover:border-blue-500/30 transition-all duration-300 hover:shadow-lg hover:scale-105 bg-gradient-to-br from-blue-500/5 to-transparent group cursor-pointer">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:blur-2xl transition-all duration-300" />
             <CardContent className="p-6 relative">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">Total Reservations</p>
-                  <h3 className="text-3xl font-bold bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent">{stats.totalReservations}</h3>
+                  <h3 className="text-3xl font-bold bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform duration-300">{stats.totalReservations}</h3>
                 </div>
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/50 group-hover:rotate-6 transition-all duration-300">
                   <FileText className="h-7 w-7 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden border-2 hover:border-green-500/30 transition-all duration-300 hover:shadow-lg bg-gradient-to-br from-green-500/5 to-transparent">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl" />
+          <Card className="relative overflow-hidden border-2 hover:border-green-500/30 transition-all duration-300 hover:shadow-lg hover:scale-105 bg-gradient-to-br from-green-500/5 to-transparent group cursor-pointer">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl group-hover:blur-2xl transition-all duration-300" />
             <CardContent className="p-6 relative">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">Active</p>
-                  <h3 className="text-3xl font-bold bg-gradient-to-br from-green-600 to-green-400 bg-clip-text text-transparent">{stats.activeCount}</h3>
+                  <h3 className="text-3xl font-bold bg-gradient-to-br from-green-600 to-green-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform duration-300">{stats.activeCount}</h3>
                 </div>
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                  <Activity className="h-7 w-7 text-white" />
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:shadow-xl group-hover:shadow-green-500/50 group-hover:rotate-6 transition-all duration-300">
+                  <Activity className="h-7 w-7 text-white animate-pulse" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden border-2 hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg bg-gradient-to-br from-amber-500/5 to-transparent">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+          <Card className="relative overflow-hidden border-2 hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg hover:scale-105 bg-gradient-to-br from-amber-500/5 to-transparent group cursor-pointer">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl group-hover:blur-2xl transition-all duration-300" />
             <CardContent className="p-6 relative">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">Pending Payment</p>
-                  <h3 className="text-3xl font-bold bg-gradient-to-br from-amber-600 to-amber-400 bg-clip-text text-transparent">{stats.pendingPayment}</h3>
+                  <h3 className="text-3xl font-bold bg-gradient-to-br from-amber-600 to-amber-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform duration-300">{stats.pendingPayment}</h3>
                 </div>
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
-                  <Clock className="h-7 w-7 text-white" />
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 group-hover:shadow-xl group-hover:shadow-amber-500/50 group-hover:rotate-6 transition-all duration-300">
+                  <Clock className="h-7 w-7 text-white animate-spin" style={{animationDuration: '3s'}} />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden border-2 hover:border-purple-500/30 transition-all duration-300 hover:shadow-lg bg-gradient-to-br from-purple-500/5 to-transparent">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl" />
+          <Card className="relative overflow-hidden border-2 hover:border-purple-500/30 transition-all duration-300 hover:shadow-lg hover:scale-105 bg-gradient-to-br from-purple-500/5 to-transparent group cursor-pointer">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl group-hover:blur-2xl transition-all duration-300" />
             <CardContent className="p-6 relative">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">Total Spent</p>
-                  <h3 className="text-xl font-bold bg-gradient-to-br from-purple-600 to-purple-400 bg-clip-text text-transparent">
+                  <h3 className="text-xl font-bold bg-gradient-to-br from-purple-600 to-purple-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform duration-300">
                     UGX {(stats.totalSpent / 100).toLocaleString()}
                   </h3>
                 </div>
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:shadow-xl group-hover:shadow-purple-500/50 group-hover:rotate-6 transition-all duration-300">
                   <TrendingUp className="h-7 w-7 text-white" />
                 </div>
               </div>
@@ -467,7 +674,7 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
         </div>
 
         {/* Search and Filters */}
-        <Card className="relative overflow-hidden border-2 border-primary/10 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
+        <Card className="relative overflow-hidden border-2 border-primary/10 bg-gradient-to-br from-primary/5 via-transparent to-transparent animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
           <div className="absolute inset-0 bg-grid-pattern opacity-5" />
           <CardContent className="p-4 sm:p-6 relative">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -498,8 +705,8 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
         </Card>
 
         {/* Tabs for filtering */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-12 bg-muted/50 backdrop-blur-sm p-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300">
+          <TabsList className="grid w-full grid-cols-3 h-12 bg-muted/50 backdrop-blur-sm p-1">
             <TabsTrigger 
               value="all" 
               className="gap-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/30 transition-all duration-300"
@@ -524,17 +731,9 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
               <span className="hidden sm:inline font-semibold">Completed</span>
               <span className="sm:hidden font-semibold">Done</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="cancelled" 
-              className="gap-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/30 transition-all duration-300"
-            >
-              <XCircle className="h-4 w-4" />
-              <span className="hidden sm:inline font-semibold">Cancelled</span>
-              <span className="sm:hidden font-semibold">Cancelled</span>
-            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="mt-6">
+          <TabsContent value={activeTab} className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {filteredReservations.length === 0 ? (
               <Card className="relative overflow-hidden border-2 border-dashed border-muted-foreground/30 bg-gradient-to-br from-muted/30 to-transparent">
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
@@ -552,11 +751,15 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-500">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 animate-in fade-in duration-500">
                 {filteredReservations.map((reservation, index) => (
                   <div 
                     key={reservation.id}
-                    className="animate-in slide-in-from-bottom-4"
+                    className={`transition-all duration-300 ${
+                      removingId === reservation.id 
+                        ? 'opacity-0 scale-95 -translate-y-4' 
+                        : 'animate-in slide-in-from-bottom-4 opacity-100 scale-100'
+                    }`}
                     style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'backwards' }}
                   >
                     <ReservationCard reservation={reservation} />
@@ -707,11 +910,21 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                   <div className="flex items-start gap-2">
                     <Info className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm">
+                    <div className="text-sm flex-1">
                       <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">Complete Your Payment</p>
-                      <p className="text-amber-700 dark:text-amber-300 text-xs">
-                        Please complete payment to confirm your reservation. Check your email for payment instructions.
+                      <p className="text-amber-700 dark:text-amber-300 text-xs mb-3">
+                        Please complete payment to confirm your reservation.
                       </p>
+                      <Button 
+                        onClick={() => {
+                          setDetailsOpen(false)
+                          openPaymentDialog(selectedReservation)
+                        }}
+                        className="w-full gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        Pay Now
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -801,17 +1014,19 @@ export function TenantReservationsView({ reservations }: TenantReservationsViewP
             <Button 
               variant="outline" 
               onClick={() => setCancelDialogOpen(false)}
+              disabled={isCancelling}
               className="hover:bg-green-500/10 hover:text-green-600 hover:border-green-500/30 transition-all duration-200"
             >
               Keep Reservation
             </Button>
             <Button 
               variant="destructive" 
-              onClick={handleCancelReservation} 
+              onClick={handleCancelReservation}
+              disabled={isCancelling}
               className="gap-2 bg-gradient-to-r from-destructive to-destructive/80 hover:from-destructive/90 hover:to-destructive/70 shadow-lg shadow-destructive/30"
             >
-              <Ban className="h-4 w-4" />
-              Yes, Cancel Reservation
+              <Ban className={`h-4 w-4 ${isCancelling ? 'animate-spin' : ''}`} />
+              {isCancelling ? 'Cancelling...' : 'Yes, Cancel Reservation'}
             </Button>
           </DialogFooter>
         </DialogContent>

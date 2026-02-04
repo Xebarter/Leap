@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         failureReason: verification.failureReason,
       })
 
-      // If payment is completed, update the reservation/booking
+      // If payment is completed, update the reservation/booking and mark property as occupied
       if (verification.status === 'completed') {
         // Get the transaction to find the reservation
         const transaction = await paymentService.getTransaction(transactionId)
@@ -62,6 +62,24 @@ export async function POST(request: NextRequest) {
             'paid',
             transactionId
           )
+        }
+        
+        // Mark property as occupied if property_id and months_paid are available
+        if (transaction?.property_id && transaction?.months_paid) {
+          const supabase = await createClient()
+          
+          // Call the database function to mark property as occupied
+          const { error: occupancyError } = await supabase.rpc('mark_property_as_occupied', {
+            p_property_id: transaction.property_id,
+            p_tenant_id: user.id,
+            p_months_paid: transaction.months_paid,
+            p_amount_paid: transaction.amount_paid_ugx,
+            p_payment_transaction_id: transaction.id
+          })
+          
+          if (occupancyError) {
+            console.error('Failed to mark property as occupied:', occupancyError)
+          }
         }
       }
     }

@@ -729,7 +729,7 @@ export function UnitTypePropertyForm({
                 </div>
                 {details.priceUgx && details.priceUgx > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    ≈ ${(details.priceUgx / 3700).toLocaleString(undefined, { maximumFractionDigits: 0 })} USD/month
+                    ≈ ${(details.priceUgx / 3700).toLocaleString(undefined, { maximumFractionDigits: 0 })} USD{buildingType === 'hostel' ? '/semester' : '/month'}
                   </p>
                 )}
               </div>

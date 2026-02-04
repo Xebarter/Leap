@@ -26,6 +26,8 @@ interface ScheduleVisitDialogProps {
   propertyTitle: string
   propertyLocation: string
   triggerButton?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function ScheduleVisitDialog({
@@ -33,8 +35,12 @@ export function ScheduleVisitDialog({
   propertyTitle,
   propertyLocation,
   triggerButton,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: ScheduleVisitDialogProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = externalOnOpenChange || setInternalOpen
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [minDate, setMinDate] = useState("")

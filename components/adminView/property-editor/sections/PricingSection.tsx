@@ -56,24 +56,50 @@ export function PricingSection({ formData, errors, onUpdate, onBlur }: PricingSe
         {/* Minimum Deposit */}
         <div className="space-y-2">
           <Label htmlFor="deposit" className="text-sm font-medium">
-            Minimum Initial Deposit (Months) <span className="text-destructive">*</span>
+            {formData.category === 'hostel' ? 'Minimum Initial Deposit' : 'Minimum Initial Deposit (Months)'} <span className="text-destructive">*</span>
           </Label>
-          <Input
-            id="deposit"
-            type="number"
-            min="1"
-            max="24"
-            value={formData.minimum_initial_months || ''}
-            onChange={(e) => onUpdate('minimum_initial_months', parseInt(e.target.value) || 1)}
-            onBlur={() => onBlur('minimum_initial_months')}
-            className={errors.minimum_initial_months ? 'border-destructive' : ''}
-          />
+          {formData.category === 'hostel' ? (
+            <select
+              id="deposit"
+              value={formData.minimum_initial_months || 1}
+              onChange={(e) => onUpdate('minimum_initial_months', parseInt(e.target.value))}
+              onBlur={() => onBlur('minimum_initial_months')}
+              className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${errors.minimum_initial_months ? 'border-destructive' : ''}`}
+            >
+              <option value="1">Half Semester</option>
+              <option value="2">Full Semester</option>
+            </select>
+          ) : (
+            <Input
+              id="deposit"
+              type="number"
+              min="1"
+              max="24"
+              value={formData.minimum_initial_months || ''}
+              onChange={(e) => onUpdate('minimum_initial_months', parseInt(e.target.value) || 1)}
+              onBlur={() => onBlur('minimum_initial_months')}
+              className={errors.minimum_initial_months ? 'border-destructive' : ''}
+            />
+          )}
           <FieldError error={errors.minimum_initial_months} />
           {formData.price_ugx > 0 && formData.minimum_initial_months > 0 && (
             <p className="text-sm text-muted-foreground">
-              Initial payment: <span className="font-medium">
-                {formatPrice(formData.price_ugx * formData.minimum_initial_months)}
-              </span> ({formData.minimum_initial_months} month{formData.minimum_initial_months > 1 ? 's' : ''})
+              {formData.category === 'hostel' ? (
+                <>
+                  Initial payment: <span className="font-medium">
+                    {formData.minimum_initial_months === 1 
+                      ? formatPrice(formData.price_ugx / 2)  // Half semester
+                      : formatPrice(formData.price_ugx)      // Full semester
+                    }
+                  </span> ({formData.minimum_initial_months === 1 ? 'Half Semester' : 'Full Semester'})
+                </>
+              ) : (
+                <>
+                  Initial payment: <span className="font-medium">
+                    {formatPrice(formData.price_ugx * formData.minimum_initial_months)}
+                  </span> ({formData.minimum_initial_months} month{formData.minimum_initial_months > 1 ? 's' : ''})
+                </>
+              )}
             </p>
           )}
         </div>

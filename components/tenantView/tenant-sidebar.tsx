@@ -33,6 +33,94 @@ export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: ()
         </Button>
         <Button 
           asChild 
+          variant={isActive('/tenant/profile') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/profile">
+            <FileText className="w-4 h-4" />
+            Profile
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/payments') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/payments">
+            <CreditCard className="w-4 h-4" />
+            Payments
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/reservations') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/reservations">
+            <Calendar className="w-4 h-4" />
+            My Reservations
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/visits') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/visits">
+            <Calendar className="w-4 h-4" />
+            My Visits
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/documents') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/documents">
+            <FileText className="w-4 h-4" />
+            Documents
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/maintenance') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/maintenance">
+            <Wrench className="w-4 h-4" />
+            Maintenance
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/notices') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/notices">
+            <Bell className="w-4 h-4" />
+            Notices
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/complaints') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/complaints">
+            <MessageSquare className="w-4 h-4" />
+            Complaints
+          </Link>
+        </Button>
+        <Button 
+          asChild 
           variant="ghost" 
           className="w-full justify-start gap-3"
           onClick={onNavigate}
@@ -42,112 +130,6 @@ export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: ()
             Find Properties
           </Link>
         </Button>
-
-        <div className="my-4 pt-4 border-t border-border/50">
-          <p className="text-xs font-semibold text-muted-foreground px-2 mb-3 uppercase tracking-wide">Account</p>
-          <div className="space-y-1">
-            <Button 
-              asChild 
-              variant={isActive('/tenant/profile') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/profile">
-                <FileText className="w-4 h-4" />
-                Profile
-              </Link>
-            </Button>
-            <Button 
-              asChild 
-              variant={isActive('/tenant/documents') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/documents">
-                <FileText className="w-4 h-4" />
-                Documents
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="my-4 pt-4 border-t border-border/50">
-          <p className="text-xs font-semibold text-muted-foreground px-2 mb-3 uppercase tracking-wide">Rental</p>
-          <div className="space-y-1">
-            <Button 
-              asChild 
-              variant={isActive('/tenant/reservations') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/reservations">
-                <Calendar className="w-4 h-4" />
-                My Reservations
-              </Link>
-            </Button>
-            <Button 
-              asChild 
-              variant={isActive('/tenant/visits') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/visits">
-                <Calendar className="w-4 h-4" />
-                My Visits
-              </Link>
-            </Button>
-            <Button 
-              asChild 
-              variant={isActive('/tenant/payments') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/payments">
-                <CreditCard className="w-4 h-4" />
-                Payments
-              </Link>
-            </Button>
-            <Button 
-              asChild 
-              variant={isActive('/tenant/maintenance') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/maintenance">
-                <Wrench className="w-4 h-4" />
-                Maintenance
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="my-4 pt-4 border-t border-border/50">
-          <p className="text-xs font-semibold text-muted-foreground px-2 mb-3 uppercase tracking-wide">Communications</p>
-          <div className="space-y-1">
-            <Button 
-              asChild 
-              variant={isActive('/tenant/notices') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/notices">
-                <Bell className="w-4 h-4" />
-                Notices
-              </Link>
-            </Button>
-            <Button 
-              asChild 
-              variant={isActive('/tenant/complaints') ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-3 h-10 text-sm"
-              onClick={onNavigate}
-            >
-              <Link href="/tenant/complaints">
-                <MessageSquare className="w-4 h-4" />
-                Complaints
-              </Link>
-            </Button>
-          </div>
-        </div>
       </nav>
 
       <div className="space-y-6 pt-6 border-t border-border/50">

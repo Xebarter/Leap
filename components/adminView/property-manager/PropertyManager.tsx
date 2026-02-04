@@ -99,6 +99,25 @@ export function PropertyManager({
       const unitsConfig = formData.get("units_config") as string;
       const floorUnitConfigStr = formData.get("floor_unit_config") as string;
       const buildingName = formData.get("building_name") as string;
+      const landlordId = (formData.get("landlord_id") as string) || '';
+
+      // Resolve landlord -> host_id (landlord_profiles.user_id) so landlord owns the property under RLS
+      let hostIdOverride: string | null = null;
+      let landlordProfileId: string | null = null;
+      if (landlordId) {
+        landlordProfileId = landlordId;
+        const { data: lp, error: lpErr } = await supabase
+          .from('landlord_profiles')
+          .select('id,user_id')
+          .eq('id', landlordId)
+          .maybeSingle();
+
+        if (lpErr) {
+          console.error('Error resolving landlord profile:', lpErr);
+        }
+
+        hostIdOverride = lp?.user_id || null;
+      }
       
       // Check if this is an apartment with floor unit configuration
       if (category === "Apartment" && floorUnitConfigStr) {
@@ -115,7 +134,9 @@ export function PropertyManager({
             price_ugx: 0,
             image_url: mainPropertyImage,
             video_url: videoUrl,
-            minimum_initial_months: minimumInitialMonths
+            minimum_initial_months: minimumInitialMonths,
+            host_id: hostIdOverride,
+            landlord_id: landlordProfileId,
           },
           floorUnitConfig,
           buildingName,
@@ -137,6 +158,8 @@ export function PropertyManager({
           total_floors: totalFloors,
           units_config: unitsConfig,
           is_active: true,
+          ...(hostIdOverride ? { host_id: hostIdOverride } : {}),
+          ...(landlordProfileId ? { landlord_id: landlordProfileId } : {}),
         };
 
         // Handle block association

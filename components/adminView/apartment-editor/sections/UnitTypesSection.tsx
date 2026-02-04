@@ -321,7 +321,9 @@ export function UnitTypesSection({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Label>Monthly Rent (UGX) <span className="text-destructive">*</span></Label>
+                    <Label>
+                      {buildingType === 'hostel' ? 'Price Per Semester (UGX)' : 'Monthly Rent (UGX)'} <span className="text-destructive">*</span>
+                    </Label>
                     <div className="relative max-w-[300px]">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                         UGX
@@ -337,7 +339,7 @@ export function UnitTypesSection({
                     </div>
                     {details.priceUgx && details.priceUgx > 0 && (
                       <p className="text-sm text-muted-foreground">
-                        Formatted: {formatPrice(details.priceUgx)} /month
+                        Formatted: {formatPrice(details.priceUgx)} {buildingType === 'hostel' ? '/semester' : '/month'}
                       </p>
                     )}
                   </div>

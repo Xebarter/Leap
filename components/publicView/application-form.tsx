@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
+import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { 
   FileText, 
   Upload, 
@@ -190,6 +191,13 @@ export function ApplicationForm({
 
   return (
     <>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Apply for Rental</DialogTitle>
+        <DialogDescription>
+          Complete your application to rent this property
+        </DialogDescription>
+      </DialogHeader>
+      
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
         <div className="flex items-center justify-between mb-4">

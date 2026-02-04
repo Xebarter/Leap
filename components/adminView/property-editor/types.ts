@@ -19,6 +19,7 @@ export interface PropertyFormData {
   google_maps_embed_url?: string
   is_featured?: boolean
   property_code?: string
+  landlord_id?: string // landlord_profiles.id
 }
 
 export interface EditorSection {
@@ -73,4 +74,5 @@ export const DEFAULT_FORM_DATA: PropertyFormData = {
   units_config: '',
   google_maps_embed_url: '',
   is_featured: false,
+  landlord_id: '',
 }

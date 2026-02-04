@@ -21,20 +21,28 @@ export default async function TenantReservationsPage() {
     redirect("/auth/login")
   }
 
-  // Fetch tenant's reservations
+  // Fetch tenant's reservations (excluding cancelled and expired)
   const { data: reservations, error } = await supabase
     .from("property_reservations")
     .select(`
       *,
+      payment_status,
       properties (
         id,
         title,
         location,
         price_ugx,
-        description
+        description,
+        image_url,
+        property_images (
+          image_url,
+          is_primary,
+          display_order
+        )
       )
     `)
     .eq("tenant_id", user.id)
+    .not("status", "in", '("cancelled","expired")')
     .order("created_at", { ascending: false })
 
   if (error) {

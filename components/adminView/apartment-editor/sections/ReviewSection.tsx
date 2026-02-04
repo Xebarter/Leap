@@ -12,9 +12,10 @@ import { formatPrice } from '@/lib/utils'
 interface ReviewSectionProps {
   formData: ApartmentFormData
   uniqueUnitTypes: string[]
+  buildingType?: string
 }
 
-export function ReviewSection({ formData, uniqueUnitTypes }: ReviewSectionProps) {
+export function ReviewSection({ formData, uniqueUnitTypes, buildingType = 'apartment' }: ReviewSectionProps) {
   const summary = calculateBuildingSummary(formData)
 
   // Check completion status
@@ -145,7 +146,12 @@ export function ReviewSection({ formData, uniqueUnitTypes }: ReviewSectionProps)
               <Calendar className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Minimum Deposit</p>
-                <p className="font-medium">{formData.minimumInitialMonths} month{formData.minimumInitialMonths !== 1 ? 's' : ''}</p>
+                <p className="font-medium">
+                  {buildingType === 'hostel' 
+                    ? (formData.minimumInitialMonths === 1 ? 'Half Semester' : 'Full Semester')
+                    : `${formData.minimumInitialMonths} month${formData.minimumInitialMonths !== 1 ? 's' : ''}`
+                  }
+                </p>
               </div>
             </div>
 
@@ -190,7 +196,7 @@ export function ReviewSection({ formData, uniqueUnitTypes }: ReviewSectionProps)
                         </h4>
                         <p className="text-sm text-muted-foreground mt-1">
                           {item.count} unit{item.count !== 1 ? 's' : ''} available
-                          {details?.priceUgx && ` • ${formatPrice(details.priceUgx)}/month`}
+                          {details?.priceUgx && ` • ${formatPrice(details.priceUgx)}${buildingType === 'hostel' ? '/semester' : '/month'}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

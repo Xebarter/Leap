@@ -64,6 +64,8 @@ import { generateUnitNumber, formatUnitNumber } from '@/lib/unit-number-generato
 import { ScheduleVisitDialog } from '@/components/publicView/schedule-visit-dialog'
 import { ReservePropertyDialog } from '@/components/publicView/reserve-property-dialog'
 import { ApplyNowDialog } from '@/components/publicView/apply-now-dialog'
+import { UnitActionDialog } from '@/components/publicView/unit-action-dialog'
+import { MobileMoneyPaymentDialog } from '@/components/publicView/mobile-money-payment-dialog'
 import { toast } from '@/hooks/use-toast'
 
 interface PropertyDetailsContentProps {
@@ -80,6 +82,12 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
   const [copiedId, setCopiedId] = React.useState(false)
   const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false)
   const [shareMenuOpen, setShareMenuOpen] = React.useState(false)
+  const [selectedUnit, setSelectedUnit] = React.useState<Unit | null>(null)
+  const [unitActionDialogOpen, setUnitActionDialogOpen] = React.useState(false)
+  const [viewCounts, setViewCounts] = React.useState({ dailyViews: 0, totalViews: 0, interested: 0 })
+  const [hasExpressedInterest, setHasExpressedInterest] = React.useState(false)
+  const [isExpressingInterest, setIsExpressingInterest] = React.useState(false)
+  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false)
 
   // Generate unique 10-digit property identifier
   // Use existing property_code if available, otherwise generate from property id
@@ -120,6 +128,124 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
         ? "Removed from your saved properties" 
         : "Added to your saved properties. View them in your profile.",
     })
+  }
+
+  // Track property view and fetch counts
+  React.useEffect(() => {
+    const trackView = async () => {
+      try {
+        // Get or create session ID
+        let sessionId = localStorage.getItem('viewSessionId')
+        if (!sessionId) {
+          sessionId = crypto.randomUUID()
+          localStorage.setItem('viewSessionId', sessionId)
+        }
+
+        // Track the view
+        await fetch(`/api/properties/${id}/view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId })
+        })
+
+        // Fetch current counts
+        const response = await fetch(`/api/properties/${id}/view`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.counts) {
+            setViewCounts({
+              dailyViews: data.counts.dailyViews || 0,
+              totalViews: data.counts.totalViews || 0,
+              interested: data.counts.interested || 0
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error tracking view:', error)
+      }
+    }
+
+    trackView()
+
+    // Check if user has expressed interest
+    const checkInterest = async () => {
+      try {
+        const response = await fetch(`/api/properties/${id}/interested`)
+        if (response.ok) {
+          const data = await response.json()
+          setHasExpressedInterest(data.hasExpressedInterest || false)
+        }
+      } catch (error) {
+        console.error('Error checking interest:', error)
+      }
+    }
+
+    checkInterest()
+  }, [id])
+
+  const handleExpressInterest = async () => {
+    setIsExpressingInterest(true)
+    try {
+      const response = await fetch(`/api/properties/${id}/interested`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Interested in this property'
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setHasExpressedInterest(true)
+        setViewCounts(prev => ({
+          ...prev,
+          interested: data.interestedCount || prev.interested + 1
+        }))
+        toast({
+          title: "Interest Recorded!",
+          description: "The property owner will be notified of your interest.",
+        })
+      } else {
+        throw new Error(data.error || 'Failed to express interest')
+      }
+    } catch (error) {
+      console.error('Error expressing interest:', error)
+      toast({
+        title: "Error",
+        description: "Failed to record your interest. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExpressingInterest(false)
+    }
+  }
+
+  const handleRemoveInterest = async () => {
+    try {
+      const response = await fetch(`/api/properties/${id}/interested`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setHasExpressedInterest(false)
+        setViewCounts(prev => ({
+          ...prev,
+          interested: Math.max(0, prev.interested - 1)
+        }))
+        toast({
+          title: "Interest Removed",
+          description: "You are no longer marked as interested in this property.",
+        })
+      }
+    } catch (error) {
+      console.error('Error removing interest:', error)
+      toast({
+        title: "Error",
+        description: "Failed to remove interest. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   // Collect all images from property_images table (from apartment wizard)
@@ -172,6 +298,10 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
   const handleUnitClick = (unit: Unit) => {
     if (unit.property_id && unit.property_id !== id) {
       router.push(`/properties/${unit.property_id}`)
+    } else {
+      // Open unit action dialog for all units (available or not)
+      setSelectedUnit(unit)
+      setUnitActionDialogOpen(true)
     }
   }
 
@@ -348,6 +478,14 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
               <div>
                 <p className="text-3xl sm:text-4xl font-bold text-primary animate-in fade-in slide-in-from-top-2 duration-700">{formattedPrice}</p>
                 <p className="text-sm text-muted-foreground">UGX / month</p>
+                {property.minimum_initial_months && (
+                  <div className="flex items-center gap-1.5 mt-2 text-sm">
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-medium text-foreground">
+                      {property.minimum_initial_months} {property.minimum_initial_months === 1 ? 'Month' : 'Months'} Min. Deposit
+                    </span>
+                  </div>
+                )}
               </div>
               <Button size="lg" className="hidden sm:flex gap-2 transition-all hover:scale-105 active:scale-95">
                 <Phone className="w-4 h-4" />
@@ -886,6 +1024,20 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                         }
                       />
                       
+                      {/* Make Payment Button */}
+                      {property.minimum_initial_months && (
+                        <Button 
+                          onClick={() => setPaymentDialogOpen(true)}
+                          variant="outline"
+                          className="w-full gap-2 h-12 text-base font-semibold border-2 border-primary hover:bg-primary hover:text-primary-foreground transition-all group"
+                          size="lg"
+                        >
+                          <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
+                          <span>Make Payment</span>
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      )}
+                      
                       {/* Info Badge */}
                       <div className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
                         <Shield className="w-3.5 h-3.5 text-primary" />
@@ -921,7 +1073,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                   </CardContent>
                 </Card>
 
-                {/* Engagement Stats */}
+                {/* Engagement Stats - Real-time data */}
                 <Card className="border border-muted/50 shadow-sm bg-muted/30 backdrop-blur-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -930,7 +1082,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">124</p>
+                          <p className="text-sm font-semibold">{viewCounts.dailyViews}</p>
                           <p className="text-xs text-muted-foreground">Views today</p>
                         </div>
                       </div>
@@ -940,11 +1092,45 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                           <Users className="w-3.5 h-3.5 text-muted-foreground" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">8</p>
+                          <p className="text-sm font-semibold">{viewCounts.interested}</p>
                           <p className="text-xs text-muted-foreground">Interested</p>
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Express Interest Button */}
+                <Card className="border border-primary/20 shadow-sm bg-primary/5">
+                  <CardContent className="p-4">
+                    {hasExpressedInterest ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <p className="text-sm font-medium">You're interested in this property</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRemoveInterest}
+                          className="w-full"
+                        >
+                          Remove Interest
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleExpressInterest}
+                        disabled={isExpressingInterest}
+                        className="w-full gap-2"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                        {isExpressingInterest ? 'Processing...' : "I'm Interested"}
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      The property owner will be notified
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -996,8 +1182,8 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
         </div>
       </section>
 
-      {/* Interactive Apartment Building Visualization - Only for apartments */}
-      {property.category === 'Apartment' && (property.property_blocks || property.total_floors) && (
+      {/* Interactive Building Visualization - For apartments, hostels, and office buildings */}
+      {(property.category === 'Apartment' || property.category === 'Hostel' || property.category === 'Office Building') && (property.property_blocks || property.total_floors) && (
         <section className="border-t">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <BuildingBlockVisualization
@@ -1024,6 +1210,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                   property_id: id
                 })) || []
               }
+              floorUnitConfig={property.floor_unit_config}
               currentPropertyId={id}
               onUnitClick={handleUnitClick}
             />
@@ -1031,22 +1218,6 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
         </section>
       )}
 
-      {/* Mobile Fixed Bottom CTA with Backdrop */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t lg:hidden z-40 shadow-2xl">
-        <div className="flex gap-2">
-          <Button className="flex-1 gap-2 transition-all active:scale-95" size="lg">
-            <Phone className="w-4 h-4" />
-            Call
-          </Button>
-          <Button variant="outline" className="flex-1 gap-2 transition-all active:scale-95" size="lg">
-            <Calendar className="w-4 h-4" />
-            Visit
-          </Button>
-          <Button variant="default" asChild className="flex-1 transition-all active:scale-95" size="lg">
-            <Link href="/auth/sign-up">Apply</Link>
-          </Button>
-        </div>
-      </div>
 
       {/* Enhanced Lightbox Dialog with Keyboard Navigation */}
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
@@ -1130,8 +1301,36 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
         </DialogContent>
       </Dialog>
 
-      {/* Bottom padding for mobile fixed CTA */}
-      <div className="h-20 lg:hidden" />
+
+      {/* Unit Action Dialog */}
+      <UnitActionDialog
+        unit={selectedUnit}
+        propertyId={property.id}
+        propertyTitle={property.title}
+        propertyLocation={property.location || ''}
+        propertyCode={propertyUniqueId}
+        open={unitActionDialogOpen}
+        onOpenChange={setUnitActionDialogOpen}
+        minimumDepositMonths={property.minimum_initial_months}
+      />
+
+      {/* Payment Dialog */}
+      <MobileMoneyPaymentDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        amount={(property.price_ugx / 100) * (property.minimum_initial_months || 1)}
+        monthlyAmount={property.price_ugx / 100}
+        depositMonths={property.minimum_initial_months || 1}
+        propertyCode={propertyUniqueId}
+        propertyTitle={property.title}
+        propertyId={property.id}
+        onSuccess={(transactionId) => {
+          toast({
+            title: "Payment Successful!",
+            description: `Your deposit payment for ${property.title} has been completed successfully.`,
+          })
+        }}
+      />
     </main>
   )
 }

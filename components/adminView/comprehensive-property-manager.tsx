@@ -1,14 +1,17 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { formatPrice } from "@/lib/utils"
 import { toast } from "sonner"
 import {
@@ -30,7 +33,8 @@ import {
   List,
   ArrowUpRight,
   Loader2,
-  Star
+  Star,
+  UserCog
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { PropertyCreateForm } from "@/components/adminView/property-manager"
@@ -68,6 +72,35 @@ export function ComprehensivePropertyManager({
   const [editingApartmentData, setEditingApartmentData] = useState<ApartmentEditData | null>(null);
   const [isLoadingApartmentData, setIsLoadingApartmentData] = useState(false);
 
+  // Reassign landlord dialog state
+  const [landlords, setLandlords] = useState<any[]>([])
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [reassignProperty, setReassignProperty] = useState<any | null>(null)
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string>('none')
+  const [reassignLoading, setReassignLoading] = useState(false)
+
+  // Bulk selection + reassignment
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<Set<string>>(new Set())
+  const [bulkLandlordId, setBulkLandlordId] = useState<string>('none')
+  const [bulkLoading, setBulkLoading] = useState(false)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('landlord_profiles')
+          .select(`id,business_name,profiles:user_id(full_name,email)`)
+          .eq('status', 'active')
+          .order('business_name')
+
+        if (data) setLandlords(data)
+      } catch (e) {
+        console.error('Failed to load landlords:', e)
+      }
+    })()
+  }, [])
+
   // Stats for the Dashboard Ribbon
   const stats = useMemo(() => ({
     totalProperties: properties.length,
@@ -81,6 +114,12 @@ export function ComprehensivePropertyManager({
     p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (p.property_code && p.property_code.includes(searchQuery))
   );
+
+  const visiblePropertyIds = useMemo(() => filteredProperties.map((p) => p.id), [filteredProperties])
+  const allVisibleSelected = useMemo(
+    () => visiblePropertyIds.length > 0 && visiblePropertyIds.every((id) => selectedPropertyIds.has(id)),
+    [visiblePropertyIds, selectedPropertyIds]
+  )
 
   const filteredUnits = units.filter(u =>
     (u.unit_number.toLowerCase().includes(searchQuery.toLowerCase())) &&
@@ -165,7 +204,18 @@ export function ComprehensivePropertyManager({
 
       const supabase = createClient();
       const [p, b, u] = await Promise.all([
-        supabase.from("properties").select("*, property_units(*)").order("created_at", { ascending: false }),
+        supabase.from("properties").select(`
+          *, 
+          property_units(*),
+          landlord_profiles!landlord_id (
+            id,
+            business_name,
+            profiles:user_id (
+              full_name,
+              email
+            )
+          )
+        `).order("created_at", { ascending: false }),
         supabase.from("property_blocks").select("*").order("created_at", { ascending: false }),
         supabase.from("property_units").select("*").order("created_at", { ascending: false })
       ]);
@@ -220,7 +270,18 @@ export function ComprehensivePropertyManager({
   const refreshData = async () => {
     const supabase = createClient();
     const [p, b, u] = await Promise.all([
-      supabase.from("properties").select("*, property_units(*)").order("created_at", { ascending: false }),
+      supabase.from("properties").select(`
+        *, 
+        property_units(*),
+        landlord_profiles!landlord_id (
+          id,
+          business_name,
+          profiles:user_id (
+            full_name,
+            email
+          )
+        )
+      `).order("created_at", { ascending: false }),
       supabase.from("property_blocks").select("*").order("created_at", { ascending: false }),
       supabase.from("property_units").select("*").order("created_at", { ascending: false })
     ]);
@@ -434,12 +495,130 @@ export function ComprehensivePropertyManager({
 
         {/* --- PROPERTIES VIEW --- */}
         <TabsContent value="properties" className="mt-0 outline-none">
+          {/* Bulk action bar */}
+          {activeTab === 'properties' && selectedPropertyIds.size > 0 && (
+            <div className="mb-3 rounded-xl border bg-card shadow-sm p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+              <div className="text-sm">
+                <span className="font-semibold">{selectedPropertyIds.size}</span> selected
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <Select value={bulkLandlordId} onValueChange={setBulkLandlordId}>
+                  <SelectTrigger className="w-full sm:w-[260px]">
+                    <SelectValue placeholder="Select landlord" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {landlords.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.business_name || l.profiles?.full_name || l.profiles?.email || 'Unknown'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={async () => {
+                    if (bulkLandlordId === '') return
+                    setBulkLoading(true)
+                    try {
+                      const ids = Array.from(selectedPropertyIds)
+                      const updates = ids
+                        .map((id) => properties.find((p) => p.id === id))
+                        .filter(Boolean) as any[]
+
+                      const results = await Promise.allSettled(
+                        updates.map((p) => {
+                          const payload = {
+                            editingPropertyId: p.id,
+                            title: p.title,
+                            location: p.location,
+                            description: p.description,
+                            price: (p.price_ugx || 0) / 100,
+                            category: p.category,
+                            bedrooms: p.bedrooms,
+                            bathrooms: p.bathrooms,
+                            image_url: p.image_url,
+                            all_image_urls: p.image_urls || [],
+                            video_url: p.video_url,
+                            minimum_initial_months: p.minimum_initial_months,
+                            total_floors: p.total_floors,
+                            units_config: p.units_config,
+                            add_to_existing_block: !!p.block_id,
+                            existing_block_id: p.block_id || null,
+                            google_maps_embed_url: p.google_maps_embed_url || null,
+                            landlord_id: bulkLandlordId === 'none' ? null : bulkLandlordId,
+                          }
+                          return fetch('/api/properties', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                          }).then(async (res) => {
+                            const json = await res.json().catch(() => ({}))
+                            if (!res.ok) throw new Error(json?.error || 'Failed')
+                            return true
+                          })
+                        })
+                      )
+
+                      const failed = results.filter((r) => r.status === 'rejected')
+                      if (failed.length > 0) {
+                        toast.error(`Updated ${results.length - failed.length}/${results.length}. ${failed.length} failed.`)
+                      } else {
+                        toast.success(`Updated ${results.length} properties.`)
+                      }
+
+                      await refreshData()
+                      setSelectedPropertyIds(new Set())
+                    } catch (e: any) {
+                      toast.error(e?.message || 'Bulk update failed')
+                    } finally {
+                      setBulkLoading(false)
+                    }
+                  }}
+                  disabled={bulkLoading}
+                >
+                  {bulkLoading ? (
+                    <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Applying...</span>
+                  ) : (
+                    'Apply'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedPropertyIds(new Set())}
+                  disabled={bulkLoading}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedPropertyIds((prev) => {
+                            const next = new Set(prev)
+                            if (checked) {
+                              visiblePropertyIds.forEach((id) => next.add(id))
+                            } else {
+                              visiblePropertyIds.forEach((id) => next.delete(id))
+                            }
+                            return next
+                          })
+                        }}
+                        aria-label="Select all visible properties"
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[400px]">Property Details</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Landlord</TableHead>
                   <TableHead className="text-center">Configuration</TableHead>
                   <TableHead className="text-center">Capacity</TableHead>
                   <TableHead className="text-right">Price (UGX)</TableHead>
@@ -450,6 +629,22 @@ export function ComprehensivePropertyManager({
                 {filteredProperties.length > 0 ? (
                   filteredProperties.map((property) => (
                     <TableRow key={property.id} className="hover:bg-muted/30 transition-colors group">
+                      <TableCell>
+                        <div className="flex items-center justify-center">
+                          <Checkbox
+                            checked={selectedPropertyIds.has(property.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedPropertyIds((prev) => {
+                                const next = new Set(prev)
+                                if (checked) next.add(property.id)
+                                else next.delete(property.id)
+                                return next
+                              })
+                            }}
+                            aria-label={`Select property ${property.title}`}
+                          />
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-4">
                           <div className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden border bg-muted">
@@ -483,6 +678,26 @@ export function ComprehensivePropertyManager({
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="text-sm">
+                          {(property as any).landlord_profiles ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {(property as any).landlord_profiles.business_name || 
+                                 (property as any).landlord_profiles.profiles?.full_name || 
+                                 'Unknown'}
+                              </span>
+                              {(property as any).landlord_profiles.profiles?.email && (
+                                <span className="text-xs text-muted-foreground">
+                                  {(property as any).landlord_profiles.profiles.email}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">Unassigned</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
                           <span className="flex items-center"><Bed className="h-3.5 w-3.5 mr-1" /> {property.bedrooms}</span>
                           <span className="flex items-center"><ShowerHead className="h-3.5 w-3.5 mr-1" /> {property.bathrooms}</span>
@@ -498,12 +713,17 @@ export function ComprehensivePropertyManager({
                         {formatPrice(property.price_ugx / 100)}
                       </TableCell>
                       <TableCell>
-                        <PropertyActions property={property} onEdit={handleEdit} onDelete={() => handleDelete(property.id)} onToggleFeatured={handleToggleFeatured} />
+                        <PropertyActions property={property} onEdit={handleEdit} onDelete={() => handleDelete(property.id)} onToggleFeatured={handleToggleFeatured} onReassign={(p: any) => {
+                          setReassignProperty(p)
+                          const current = (p as any).landlord_id || (p as any).landlord_profiles?.id || 'none'
+                          setSelectedLandlordId(current || 'none')
+                          setReassignOpen(true)
+                        }} />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <EmptyState colSpan={6} />
+                  <EmptyState colSpan={8} />
                 )}
               </TableBody>
             </Table>
@@ -523,7 +743,7 @@ export function ComprehensivePropertyManager({
                       </div>
                       <CardTitle className="text-lg">Unit {unit.unit_number}</CardTitle>
                     </div>
-                    <Badge variant={unit.is_available ? "success" : "destructive"} className={unit.is_available ? "bg-green-100 text-green-700 hover:bg-green-100" : ""}>
+                    <Badge variant={unit.is_available ? "default" : "destructive"} className={unit.is_available ? "bg-green-100 text-green-700 hover:bg-green-100" : ""}>
                       {unit.is_available ? "Available" : "Occupied"}
                     </Badge>
                   </div>
@@ -553,6 +773,103 @@ export function ComprehensivePropertyManager({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Reassign landlord dialog */}
+      <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign Landlord</DialogTitle>
+            <DialogDescription>
+              Select the landlord who should own this property. This will update landlord access in the landlord portal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label>Property</Label>
+            <div className="rounded-md border p-3 bg-muted/30">
+              <div className="font-semibold">{reassignProperty?.title || 'Property'}</div>
+              <div className="text-xs text-muted-foreground">{reassignProperty?.location || ''}</div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Landlord</Label>
+            <Select value={selectedLandlordId || 'none'} onValueChange={setSelectedLandlordId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select landlord" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Unassigned</SelectItem>
+                {landlords.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.business_name || l.profiles?.full_name || l.profiles?.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!reassignProperty) return
+                setReassignLoading(true)
+                try {
+                  const payload = {
+                    editingPropertyId: reassignProperty.id,
+                    title: reassignProperty.title,
+                    location: reassignProperty.location,
+                    description: reassignProperty.description,
+                    price: (reassignProperty.price_ugx || 0) / 100,
+                    category: reassignProperty.category,
+                    bedrooms: reassignProperty.bedrooms,
+                    bathrooms: reassignProperty.bathrooms,
+                    image_url: reassignProperty.image_url,
+                    all_image_urls: reassignProperty.image_urls || [],
+                    video_url: reassignProperty.video_url,
+                    minimum_initial_months: reassignProperty.minimum_initial_months,
+                    total_floors: reassignProperty.total_floors,
+                    units_config: reassignProperty.units_config,
+                    add_to_existing_block: !!reassignProperty.block_id,
+                    existing_block_id: reassignProperty.block_id || null,
+                    google_maps_embed_url: reassignProperty.google_maps_embed_url || null,
+                    landlord_id: selectedLandlordId === 'none' ? null : selectedLandlordId,
+                  }
+
+                  const res = await fetch('/api/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                  })
+                  const json = await res.json().catch(() => ({}))
+                  if (!res.ok) throw new Error(json?.error || 'Failed to reassign landlord')
+
+                  toast.success('Landlord reassigned')
+                  setReassignOpen(false)
+                  setReassignProperty(null)
+
+                  // Refresh properties list (reuse existing refresh logic)
+                  await refreshData()
+                } catch (e: any) {
+                  toast.error(e?.message || 'Failed to reassign')
+                } finally {
+                  setReassignLoading(false)
+                }
+              }}
+              disabled={reassignLoading}
+            >
+              {reassignLoading ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving...</span>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -578,7 +895,7 @@ function StatCard({ title, value, icon: Icon, color }: any) {
   )
 }
 
-function PropertyActions({ property, onEdit, onDelete, onToggleFeatured }: any) {
+function PropertyActions({ property, onEdit, onDelete, onToggleFeatured, onReassign }: any) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -586,7 +903,7 @@ function PropertyActions({ property, onEdit, onDelete, onToggleFeatured }: any) 
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem asChild className="cursor-pointer">
           <a href={`/admin/properties/${property.id}/edit`}>
             <Pencil className="mr-2 h-4 w-4" /> Edit Details
@@ -594,6 +911,9 @@ function PropertyActions({ property, onEdit, onDelete, onToggleFeatured }: any) 
         </DropdownMenuItem>
         <DropdownMenuItem className="cursor-pointer">
           <LayoutGrid className="mr-2 h-4 w-4" /> Manage Units
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onReassign(property)} className="cursor-pointer">
+          <UserCog className="mr-2 h-4 w-4" /> Reassign Landlord
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onToggleFeatured(property)} className="cursor-pointer">
           <Star className={`mr-2 h-4 w-4 ${property.is_featured ? 'fill-amber-500 text-amber-500' : ''}`} />

@@ -76,6 +76,7 @@ export interface PropertyData {
   block_id?: string
   total_floors?: number
   units_config?: string
+  floor_unit_config?: any  // JSONB configuration for floor-based unit types
   features?: string[]
   amenities?: string[]
   area_sqm?: number
@@ -123,6 +124,7 @@ export async function getPublicProperties(): Promise<PropertyData[]> {
     // Fetch properties with all relevant fields including apartment wizard data
     // Note: property_code and google_maps_embed_url may not exist in older databases - they're optional
     // First try without property_code to ensure backwards compatibility
+    // Only show properties that are not occupied (is_occupied = false or null)
     const { data, error } = await supabase
       .from('properties')
       .select(`
@@ -163,6 +165,7 @@ export async function getPublicProperties(): Promise<PropertyData[]> {
         )
       `)
       .eq('is_active', true)
+      .or('is_occupied.is.null,is_occupied.eq.false')
       .order('created_at', { ascending: false })
     
     if (error) {
@@ -212,6 +215,7 @@ export async function getPublicProperties(): Promise<PropertyData[]> {
             )
           `)
           .eq('is_active', true)
+          .or('is_occupied.is.null,is_occupied.eq.false')
           .order('created_at', { ascending: false })
         
         if (!fallbackError) {
@@ -247,7 +251,20 @@ export async function getPropertyById(id: string): Promise<PropertyData | null> 
           name,
           location,
           total_floors,
-          total_units
+          total_units,
+          property_units (
+            id,
+            block_id,
+            floor_number,
+            unit_number,
+            unit_type,
+            bedrooms,
+            bathrooms,
+            is_available,
+            price_ugx,
+            property_id,
+            is_occupied
+          )
         ),
         property_units!left (
           id,
@@ -258,7 +275,9 @@ export async function getPropertyById(id: string): Promise<PropertyData | null> 
           bedrooms,
           bathrooms,
           is_available,
-          price_ugx
+          price_ugx,
+          property_id,
+          is_occupied
         ),
         property_images (
           id,
@@ -315,6 +334,25 @@ export async function getPropertyById(id: string): Promise<PropertyData | null> 
       }
     }
 
+    // If property has a block_id, fetch ALL units from that block (not just current property's units)
+    if (data && data.block_id) {
+      const { data: allBlockUnits, error: unitsError } = await supabase
+        .from('property_units')
+        .select('*')
+        .eq('block_id', data.block_id)
+        .order('floor_number', { ascending: false })
+        .order('unit_number', { ascending: true })
+
+      if (!unitsError && allBlockUnits && data.property_blocks) {
+        // Replace the nested units with ALL units from the block
+        if (Array.isArray(data.property_blocks)) {
+          data.property_blocks[0].property_units = allBlockUnits
+        } else {
+          data.property_blocks.property_units = allBlockUnits
+        }
+      }
+    }
+
     // Sort property_images by display_order if they exist
     const sortedPropertyImages = data.property_images 
       ? [...data.property_images].sort((a, b) => a.display_order - b.display_order)
@@ -338,7 +376,7 @@ export async function getFeaturedProperties(limit: number = 6): Promise<Property
     
     const supabase = getSupabaseAdmin()
     
-    // Try to fetch featured properties
+    // Try to fetch featured properties (exclude occupied properties)
     const { data, error } = await supabase
       .from('properties')
       .select(`
@@ -381,6 +419,7 @@ export async function getFeaturedProperties(limit: number = 6): Promise<Property
       `)
       .eq('is_active', true)
       .eq('is_featured', true)
+      .or('is_occupied.is.null,is_occupied.eq.false')
       .order('created_at', { ascending: false })
       .limit(limit)
     
@@ -431,6 +470,7 @@ export async function getFeaturedProperties(limit: number = 6): Promise<Property
             )
           `)
           .eq('is_active', true)
+          .or('is_occupied.is.null,is_occupied.eq.false')
           .order('created_at', { ascending: false })
           .limit(limit)
         

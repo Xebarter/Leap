@@ -2,9 +2,11 @@
 
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/checkbox'
 import { PropertyFormData } from '../types'
 import { Building2, Star, Info } from 'lucide-react'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface SettingsSectionProps {
   formData: PropertyFormData
@@ -13,6 +15,26 @@ interface SettingsSectionProps {
 }
 
 export function SettingsSection({ formData, blocks, onUpdate }: SettingsSectionProps) {
+  const [landlords, setLandlords] = useState<any[]>([])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('landlord_profiles')
+          .select(
+            `id,business_name,profiles:user_id(full_name,email)`
+          )
+          .eq('status', 'active')
+          .order('business_name')
+
+        if (data) setLandlords(data)
+      } catch (e) {
+        console.error('Failed to load landlords:', e)
+      }
+    })()
+  }, [])
   return (
     <div className="space-y-6">
       <div>
@@ -23,6 +45,34 @@ export function SettingsSection({ formData, blocks, onUpdate }: SettingsSectionP
       </div>
 
       <div className="grid gap-6">
+        {/* Landlord / Owner */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm font-medium">Property Owner</Label>
+          </div>
+
+          <Select
+            value={formData.landlord_id || 'none'}
+            onValueChange={(value) => onUpdate('landlord_id', value === 'none' ? '' : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select landlord (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Unassigned</SelectItem>
+              {landlords.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.business_name || l.profiles?.full_name || l.profiles?.email || 'Unknown'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <p className="text-xs text-muted-foreground">
+            Changing owner will also update who can access this property in the landlord portal.
+          </p>
+        </div>
         {/* Featured Property */}
         <div className="flex items-center justify-between p-4 border rounded-lg">
           <div className="flex items-start gap-3">

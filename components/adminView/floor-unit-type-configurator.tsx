@@ -52,7 +52,7 @@ export function getUnitTypesForBuilding(buildingType: string = 'apartment') {
 export interface UnitTypeConfig {
   type: string // e.g., "1BR", "2BR"
   count: number // How many units of this type on this floor
-  monthlyFee: number // Monthly rental fee in UGX
+  monthlyFee: number // Rental fee in UGX (monthly for apartments/offices, per semester for hostels)
 }
 
 // Image for a unit type gallery
@@ -73,7 +73,7 @@ export interface UnitTypeDetails {
   description: string // Full property description
   
   // Pricing
-  priceUgx?: number // Monthly rent in UGX
+  priceUgx?: number // Rent in UGX (monthly for apartments/offices, per semester for hostels)
   
   // Specifications - Residential
   area?: number // Area in m²
@@ -942,10 +942,10 @@ export function FloorUnitTypeConfigurator({
                       </Button>
                     </div>
                     
-                    {/* Monthly Fee Input */}
+                    {/* Fee Input (Monthly for apartments/offices, Per Semester for hostels) */}
                     <div className="flex items-center gap-2 pl-2">
                       <Label htmlFor={`monthly-fee-${idx}`} className="text-xs text-muted-foreground min-w-[100px]">
-                        Monthly Fee (UGX):
+                        {buildingType === 'hostel' ? 'Per Semester (UGX):' : 'Monthly Fee (UGX):'}
                       </Label>
                       <Input
                         id={`monthly-fee-${idx}`}

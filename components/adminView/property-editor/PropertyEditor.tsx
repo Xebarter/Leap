@@ -113,6 +113,7 @@ export function PropertyEditor({ propertyId, initialData, blocks = [], isNew = f
           google_maps_embed_url: data.google_maps_embed_url || '',
           is_featured: data.is_featured || false,
           property_code: data.property_code,
+          landlord_id: data.landlord_id || '',
         })
       }
     } catch (error) {
@@ -140,36 +141,46 @@ export function PropertyEditor({ propertyId, initialData, blocks = [], isNew = f
     setSaveStatus({ status: 'saving' })
 
     try {
-      const supabase = createClient()
       const propertyData = {
         title: formData.title,
         location: formData.location,
         description: formData.description,
-        price_ugx: Math.round(formData.price_ugx * 100),
+        price: formData.price_ugx, // API expects major units; it converts to cents
         category: formData.category,
         bedrooms: formData.bedrooms,
         bathrooms: formData.bathrooms,
         image_url: formData.image_url,
-        image_urls: formData.image_urls,
+        all_image_urls: formData.image_urls,
         video_url: formData.video_url,
         minimum_initial_months: formData.minimum_initial_months,
         total_floors: formData.total_floors,
         units_config: formData.units_config,
-        block_id: formData.block_id || null,
+        existing_block_id: formData.block_id || null,
+        add_to_existing_block: !!formData.block_id,
         google_maps_embed_url: formData.google_maps_embed_url,
+        landlord_id: formData.landlord_id || null,
         is_featured: formData.is_featured,
-        is_active: true,
+        editingPropertyId: isNew ? null : propertyId,
+      }
+
+      const response = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(propertyData),
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to save property')
       }
 
       if (isNew) {
-        const { data, error } = await supabase.from('properties').insert(propertyData).select().single()
-        if (error) throw error
+        const newId = result?.property?.id || result?.properties?.[0]?.id
         toast.success('Property created successfully!')
         setSaveStatus({ status: 'saved', lastSaved: new Date() })
-        forceNavigate(`/admin/properties/${data.id}/edit`)
+        if (newId) forceNavigate(`/admin/properties/${newId}/edit`)
       } else {
-        const { error } = await supabase.from('properties').update(propertyData).eq('id', propertyId)
-        if (error) throw error
         toast.success('Property saved successfully!')
         setSaveStatus({ status: 'saved', lastSaved: new Date() })
       }

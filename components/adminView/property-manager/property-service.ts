@@ -162,7 +162,8 @@ export async function createPropertiesFromFloorUnitConfig(
       total_floors: floorConfig.totalFloors,
       units_config: unitType.totalUnits.toString(),
       block_id: blockId,
-      host_id: user?.id || null,
+      host_id: basePropertyData.host_id ?? user?.id ?? null,
+      landlord_id: basePropertyData.landlord_id ?? null,
       is_active: true,
     };
 

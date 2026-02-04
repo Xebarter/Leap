@@ -49,7 +49,8 @@ async function handler(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
   const isAdminPage = request.nextUrl.pathname.startsWith('/admin')
   const isTenantPage = request.nextUrl.pathname.startsWith('/tenant')
-  const isProtectedPage = isAdminPage || isTenantPage
+  const isLandlordPage = request.nextUrl.pathname.startsWith('/landlord')
+  const isProtectedPage = isAdminPage || isTenantPage || isLandlordPage
 
   if (isPublicPath) {
     return supabaseResponse
@@ -64,29 +65,45 @@ async function handler(request: NextRequest) {
   if (user && isAuthPage && !request.nextUrl.pathname.includes('/callback') && !request.nextUrl.pathname.includes('/logout')) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_admin, user_type')
+      .select('is_admin, user_type, role')
       .eq('id', user.id)
       .single()
 
     const isAdmin = profile?.is_admin || user.user_metadata?.is_admin
-    const redirectPath = isAdmin ? '/admin' : '/tenant'
+    const isLandlord = profile?.role === 'landlord' || profile?.user_type === 'landlord'
+    
+    let redirectPath = '/tenant'
+    if (isAdmin) {
+      redirectPath = '/admin'
+    } else if (isLandlord) {
+      redirectPath = '/landlord'
+    }
+    
     return NextResponse.redirect(new URL(redirectPath, request.url))
   }
 
   if (user && isProtectedPage) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_admin, user_type')
+      .select('is_admin, user_type, role')
       .eq('id', user.id)
       .single()
 
     const isAdmin = profile?.is_admin || user.user_metadata?.is_admin
+    const isLandlord = profile?.role === 'landlord' || profile?.user_type === 'landlord'
 
-    if (isAdmin && isTenantPage) {
+    // Admin trying to access tenant or landlord pages
+    if (isAdmin && (isTenantPage || isLandlordPage)) {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
 
-    if (!isAdmin && isAdminPage) {
+    // Landlord trying to access admin or tenant pages
+    if (isLandlord && !isAdmin && (isAdminPage || isTenantPage)) {
+      return NextResponse.redirect(new URL('/landlord', request.url))
+    }
+
+    // Tenant trying to access admin or landlord pages
+    if (!isAdmin && !isLandlord && (isAdminPage || isLandlordPage)) {
       return NextResponse.redirect(new URL('/tenant', request.url))
     }
   }

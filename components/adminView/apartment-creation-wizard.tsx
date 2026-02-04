@@ -10,8 +10,9 @@ import { Progress } from '@/components/ui/progress'
 import { 
   Building2, MapPin, Layers, ImageIcon, FileText, 
   ChevronRight, ChevronLeft, Check, Upload, X, Loader2,
-  Home, ArrowRight, Sparkles
+  Home, ArrowRight, Sparkles, User
 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { 
   FloorUnitTypeConfigurator, 
   FloorUnitTypeConfiguration,
@@ -55,10 +56,42 @@ export function ApartmentCreationWizard({ onComplete, onCancel, editData }: Apar
   // Current step
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Load landlords on mount
+  React.useEffect(() => {
+    loadLandlords();
+  }, []);
+
+  const loadLandlords = async () => {
+    try {
+      const supabase = await import('@/lib/supabase/client').then(m => m.createClient());
+      const { data, error } = await supabase
+        .from("landlord_profiles")
+        .select(`
+          id,
+          user_id,
+          business_name,
+          profiles:user_id (
+            full_name,
+            email
+          )
+        `)
+        .eq("status", "active")
+        .order("business_name");
+
+      if (!error && data) {
+        setLandlords(data);
+      }
+    } catch (error) {
+      console.error("Error loading landlords:", error);
+    }
+  };
   
   // Step 1: Building Info (building-level only)
   const [buildingName, setBuildingName] = useState(editData?.buildingName || '')
   const [location, setLocation] = useState(editData?.location || '')
+  const [landlords, setLandlords] = useState<any[]>([])
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string>('')
   
   // Step 2: Floor Configuration
   const [totalFloors, setTotalFloors] = useState(editData?.totalFloors || 5)
@@ -163,6 +196,7 @@ export function ApartmentCreationWizard({ onComplete, onCancel, editData }: Apar
       units_config: '',
       floor_unit_config: floorConfig,
       minimum_initial_months: editData.minimumInitialMonths,
+      landlord_id: selectedLandlordId || null, // Add landlord_id
       // Edit mode specific fields
       block_id: editData.blockId,
       existing_property_ids: editData.existingPropertyIds || [],
@@ -218,6 +252,7 @@ export function ApartmentCreationWizard({ onComplete, onCancel, editData }: Apar
       total_floors: floorConfig.totalFloors,
       units_config: '',
       floor_unit_config: floorConfig, // Pass the full floor configuration
+      landlord_id: selectedLandlordId || null, // Add landlord_id
     }
 
     console.log('API Payload:', payload)
@@ -312,6 +347,9 @@ export function ApartmentCreationWizard({ onComplete, onCancel, editData }: Apar
             setLocation={setLocation}
             totalFloors={totalFloors}
             setTotalFloors={setTotalFloors}
+            landlords={landlords}
+            selectedLandlordId={selectedLandlordId}
+            setSelectedLandlordId={setSelectedLandlordId}
           />
         )}
 
@@ -393,7 +431,10 @@ export function ApartmentCreationWizard({ onComplete, onCancel, editData }: Apar
 function BuildingInfoStep({
   buildingName, setBuildingName,
   location, setLocation,
-  totalFloors, setTotalFloors
+  totalFloors, setTotalFloors,
+  landlords,
+  selectedLandlordId,
+  setSelectedLandlordId
 }: {
   buildingName: string
   setBuildingName: (v: string) => void
@@ -401,6 +442,9 @@ function BuildingInfoStep({
   setLocation: (v: string) => void
   totalFloors: number
   setTotalFloors: (v: number) => void
+  landlords: any[]
+  selectedLandlordId: string
+  setSelectedLandlordId: (v: string) => void
 }) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -483,6 +527,29 @@ function BuildingInfoStep({
             </div>
             <p className="text-sm text-muted-foreground">
               You can configure unit types per floor in the next step
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="landlord" className="text-base flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Property Owner (Optional)
+            </Label>
+            <Select value={selectedLandlordId} onValueChange={setSelectedLandlordId}>
+              <SelectTrigger className="h-12">
+                <SelectValue placeholder="Select landlord (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None - Unassigned</SelectItem>
+                {landlords.map((landlord) => (
+                  <SelectItem key={landlord.id} value={landlord.id}>
+                    {landlord.business_name || landlord.profiles?.full_name || landlord.profiles?.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Assign this building to a landlord for ownership tracking
             </p>
           </div>
         </CardContent>

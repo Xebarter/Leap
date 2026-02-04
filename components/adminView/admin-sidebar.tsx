@@ -15,7 +15,8 @@ import {
   ChevronRight,
   CreditCard,
   Wrench,
-  Shield
+  Shield,
+  Home
 } from "lucide-react"
 
 export function AdminSidebar() {
@@ -34,6 +35,16 @@ export function AdminSidebar() {
       icon: Building2
     },
     {
+      href: "/admin/buildings",
+      label: "Buildings",
+      icon: Building2
+    },
+    {
+      href: "/admin/landlords",
+      label: "Landlords",
+      icon: Users
+    },
+    {
       href: "/admin/tenants",
       label: "Tenants",
       icon: Users
@@ -42,6 +53,11 @@ export function AdminSidebar() {
       href: "/admin/reservations",
       label: "Reservations",
       icon: Shield
+    },
+    {
+      href: "/admin/occupancies",
+      label: "Occupancies",
+      icon: Home
     },
     {
       href: "/admin/bookings",
@@ -105,7 +121,7 @@ export function AdminSidebar() {
       "
     >
       {/* Brand / Logo Section */}
-      <div className="h-20 flex items-center px-6 border-b border-border/50 mb-6">
+      <div className="h-20 flex items-center px-6 border-b border-border/50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Image
             src="/logo.png"
@@ -120,35 +136,38 @@ export function AdminSidebar() {
         </div>
       </div>
 
-      {/* Main Navigation */}
-      <div className="px-4 mb-4">
-        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-2 mb-4 opacity-60">
-          Management
-        </p>
-        <nav className="space-y-1">
-          {navItems.map(renderNavItem)}
-        </nav>
-      </div>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {/* Main Navigation */}
+        <div className="px-4 mb-4 mt-6">
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-2 mb-4 opacity-60">
+            Management
+          </p>
+          <nav className="space-y-1">
+            {navItems.map(renderNavItem)}
+          </nav>
+        </div>
 
-      {/* Secondary / External Navigation */}
-      <div className="px-4 mt-4 flex-1">
-        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-2 mb-4 opacity-60">
-          Public
-        </p>
-        <Button
-          asChild
-          variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Link href="/">
-            <ExternalLink className="h-4 w-4" />
-            View Live Site
-          </Link>
-        </Button>
+        {/* Secondary / External Navigation */}
+        <div className="px-4 mt-4 pb-4">
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-2 mb-4 opacity-60">
+            Public
+          </p>
+          <Button
+            asChild
+            variant="ghost"
+            className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Link href="/">
+              <ExternalLink className="h-4 w-4" />
+              View Live Site
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Footer / User Actions */}
-      <div className="p-4 mt-auto border-t border-border/50 bg-background/20">
+      <div className="p-4 border-t border-border/50 bg-background/20 flex-shrink-0">
         <form action="/auth/logout" method="post">
           <Button
             type="submit"

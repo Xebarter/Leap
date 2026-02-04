@@ -218,8 +218,12 @@ export async function GET(request: Request) {
       }
     );
 
-    // Get all properties with related data using service role
-    const { data: properties, error: propertiesError } = await supabaseAdmin
+    // Parse URL parameters
+    const { searchParams } = new URL(request.url)
+    const blockId = searchParams.get('block_id')
+
+    // Build query with optional block_id filter
+    let query = supabaseAdmin
       .from('properties')
       .select(`
         *,
@@ -240,8 +244,17 @@ export async function GET(request: Request) {
           is_available
         )
       `)
-      .eq('is_active', true) // Only fetch active properties for public view
-      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (blockId) {
+      // If block_id is provided, fetch properties for that specific block (for editing)
+      query = query.eq('block_id', blockId)
+    } else {
+      // Otherwise, only fetch active properties for public view
+      query = query.eq('is_active', true)
+    }
+
+    const { data: properties, error: propertiesError } = await query.order('created_at', { ascending: false });
     
     // Note: google_maps_embed_url is included in the * select, so it's already fetched
 
@@ -357,6 +370,39 @@ export async function POST(request: Request) {
 
     // Parse the request body
     const body = await request.json();
+
+    // Optional: assign property to a landlord (landlord_profiles.id)
+    // If provided, we set:
+    // - properties.landlord_id = landlord_profiles.id
+    // - properties.host_id = landlord_profiles.user_id (so landlord access works under existing RLS)
+    let assignedLandlordId: string | null = body?.landlord_id || null;
+    let assignedHostId: string | null = null;
+
+    if (assignedLandlordId) {
+      const { data: landlordProfile, error: landlordError } = await supabaseAdmin
+        .from('landlord_profiles')
+        .select('id,user_id,status')
+        .eq('id', assignedLandlordId)
+        .maybeSingle();
+
+      if (landlordError) {
+        console.error('Error loading landlord profile:', landlordError);
+        return NextResponse.json(
+          { error: 'Failed to resolve selected landlord' },
+          { status: 400 }
+        );
+      }
+
+      if (!landlordProfile?.user_id) {
+        return NextResponse.json(
+          { error: 'Selected landlord could not be resolved. Please select a valid landlord.' },
+          { status: 400 }
+        );
+      }
+
+      assignedHostId = landlordProfile.user_id;
+    }
+
     const {
       title,
       location,
@@ -530,7 +576,8 @@ export async function POST(request: Request) {
           total_floors: parseInt(total_floors) || config.totalFloors,
           units_config: unitType.totalUnits.toString(),
           block_id: blockId,
-          host_id: user.id,
+          host_id: assignedHostId || user.id,
+          landlord_id: assignedLandlordId,
           is_active: true,
           google_maps_embed_url: google_maps_embed_url || null,
         };
@@ -669,7 +716,8 @@ export async function POST(request: Request) {
       minimum_initial_months: Math.max(1, parseInt(minimum_initial_months) || 1), // Ensure at least 1
       total_floors: Math.max(1, parseInt(total_floors) || 1), // Ensure at least 1
       units_config: units_config,
-      host_id: user.id,
+      host_id: assignedHostId || user.id,
+      landlord_id: assignedLandlordId,
       google_maps_embed_url: google_maps_embed_url || null,
     };
 

@@ -140,18 +140,25 @@ export function ApplyNowDialog({
 // Separate components for better organization
 function AuthPrompt({ propertyTitle, propertyLocation, onSignup, onLogin, onClose }: any) {
   return (
-    <div className="p-8 space-y-6">
-      <div className="text-center space-y-4">
-        <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-          <FileText className="w-8 h-8 text-primary" />
+    <>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Sign in to Apply</DialogTitle>
+        <DialogDescription>
+          Create a free tenant account or sign in to submit your rental application
+        </DialogDescription>
+      </DialogHeader>
+      <div className="p-8 space-y-6">
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+            <FileText className="w-8 h-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-bold">Sign in to Apply</h3>
+            <p className="text-muted-foreground">
+              Create a free tenant account or sign in to submit your rental application
+            </p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <h3 className="text-2xl font-bold">Sign in to Apply</h3>
-          <p className="text-muted-foreground">
-            Create a free tenant account or sign in to submit your rental application
-          </p>
-        </div>
-      </div>
 
       <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 space-y-3 border border-primary/20">
         <div className="flex items-start gap-3">
@@ -207,23 +214,31 @@ function AuthPrompt({ propertyTitle, propertyLocation, onSignup, onLogin, onClos
           Maybe later
         </Button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 
 function SuccessState({ applicationNumber, propertyTitle }: any) {
   return (
-    <div className="p-8 text-center space-y-6">
-      <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
-        <CheckCircle2 className="w-8 h-8 text-green-500" />
-      </div>
-      
-      <div className="space-y-2">
-        <h3 className="text-2xl font-bold">Application Submitted!</h3>
-        <p className="text-muted-foreground">
+    <>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Application Submitted</DialogTitle>
+        <DialogDescription>
           Your rental application has been successfully submitted
-        </p>
-      </div>
+        </DialogDescription>
+      </DialogHeader>
+      <div className="p-8 text-center space-y-6">
+        <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8 text-green-500" />
+        </div>
+        
+        <div className="space-y-2">
+          <h3 className="text-2xl font-bold">Application Submitted!</h3>
+          <p className="text-muted-foreground">
+            Your rental application has been successfully submitted
+          </p>
+        </div>
 
       <div className="bg-muted/50 rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between text-sm">
@@ -256,6 +271,7 @@ function SuccessState({ applicationNumber, propertyTitle }: any) {
       <p className="text-xs text-muted-foreground">
         Redirecting to your dashboard...
       </p>
-    </div>
+      </div>
+    </>
   )
 }

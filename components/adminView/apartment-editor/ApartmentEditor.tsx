@@ -255,7 +255,13 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
       }
 
       toast.success('Apartment building deleted')
-      router.push('/admin/properties')
+      // Check if we came from the buildings page
+      const currentPath = window.location.pathname
+      if (currentPath.includes('/admin/buildings/')) {
+        router.push('/admin/buildings')
+      } else {
+        router.push('/admin/properties')
+      }
     } catch (error: any) {
       console.error('Delete error:', error)
       toast.error(error.message || 'Failed to delete apartment')
@@ -267,7 +273,13 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
     if (isDirty && !window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
       return
     }
-    router.push('/admin/properties')
+    // Check if we came from the buildings page
+    const currentPath = window.location.pathname
+    if (currentPath.includes('/admin/buildings/')) {
+      router.push('/admin/buildings')
+    } else {
+      router.push('/admin/properties')
+    }
   }, [isDirty, router])
 
   // Render section content
@@ -319,6 +331,7 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
           <ReviewSection
             formData={formData}
             uniqueUnitTypes={uniqueUnitTypes}
+            buildingType={buildingType}
           />
         )
       default:
