@@ -65,6 +65,8 @@ export function ComprehensivePropertyManager({
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [activeTab, setActiveTab] = useState("properties");
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   
   // State for property type selection and apartment wizard
   const [showPropertyTypeSelector, setShowPropertyTypeSelector] = useState(false);
@@ -109,11 +111,16 @@ export function ComprehensivePropertyManager({
     occupancyRate: units.length > 0 ? Math.round(((units.length - units.filter(u => u.is_available).length) / units.length) * 100) : 0
   }), [properties, units]);
 
-  const filteredProperties = properties.filter(p =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.property_code && p.property_code.includes(searchQuery))
-  );
+  const filteredProperties = properties.filter(p => {
+    const matchesSearch = 
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.property_code && p.property_code.includes(searchQuery))
+    
+    const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
+    
+    return matchesSearch && matchesCategory
+  });
 
   const visiblePropertyIds = useMemo(() => filteredProperties.map((p) => p.id), [filteredProperties])
   const allVisibleSelected = useMemo(
@@ -474,11 +481,42 @@ export function ComprehensivePropertyManager({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 placeholder="Search by title, location..."
-                className="pl-10 w-full lg:w-[350px] bg-background border-none shadow-none ring-1 ring-border focus-visible:ring-2"
+                className="pl-10 w-full lg:w-[300px] bg-background border-none shadow-none ring-1 ring-border focus-visible:ring-2"
                 value={searchQuery ?? ''}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            {activeTab === "properties" && (
+              <>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="House">House</option>
+                  <option value="Hostel">Hostel</option>
+                  <option value="Office">Office</option>
+                </select>
+                <div className="flex gap-2">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    size="icon"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    size="icon"
+                    onClick={() => setViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </>
+            )}
             {activeTab === "units" && (
               <Button
                 variant={showAvailableOnly ? "default" : "outline"}
@@ -593,141 +631,53 @@ export function ComprehensivePropertyManager({
             </div>
           )}
 
-          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[40px]">
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={allVisibleSelected}
-                        onCheckedChange={(checked) => {
-                          setSelectedPropertyIds((prev) => {
-                            const next = new Set(prev)
-                            if (checked) {
-                              visiblePropertyIds.forEach((id) => next.add(id))
-                            } else {
-                              visiblePropertyIds.forEach((id) => next.delete(id))
-                            }
-                            return next
-                          })
-                        }}
-                        aria-label="Select all visible properties"
-                      />
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[400px]">Property Details</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Landlord</TableHead>
-                  <TableHead className="text-center">Configuration</TableHead>
-                  <TableHead className="text-center">Capacity</TableHead>
-                  <TableHead className="text-right">Price (UGX)</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProperties.length > 0 ? (
-                  filteredProperties.map((property) => (
-                    <TableRow key={property.id} className="hover:bg-muted/30 transition-colors group">
-                      <TableCell>
-                        <div className="flex items-center justify-center">
-                          <Checkbox
-                            checked={selectedPropertyIds.has(property.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedPropertyIds((prev) => {
-                                const next = new Set(prev)
-                                if (checked) next.add(property.id)
-                                else next.delete(property.id)
-                                return next
-                              })
-                            }}
-                            aria-label={`Select property ${property.title}`}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-4">
-                          <div className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden border bg-muted">
-                            {property.image_url ? (
-                              <img src={property.image_url} alt="" className="object-cover w-full h-full" />
-                            ) : (
-                              <Home className="h-6 w-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-base truncate group-hover:text-primary transition-colors">{property.title}</span>
-                            {property.property_code && (
-                              <span className="text-xs font-mono text-muted-foreground">ID: {property.property_code}</span>
-                            )}
-                            <div className="flex items-center text-xs text-muted-foreground mt-1">
-                              <MapPin className="h-3 w-3 mr-1 shrink-0" />
-                              <span className="truncate">{property.location}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant="secondary" className="font-medium">{property.category}</Badge>
-                          {property.is_featured && (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
-                              <Star className="h-3 w-3 fill-amber-500" />
-                              Featured
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {(property as any).landlord_profiles ? (
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {(property as any).landlord_profiles.business_name || 
-                                 (property as any).landlord_profiles.profiles?.full_name || 
-                                 'Unknown'}
-                              </span>
-                              {(property as any).landlord_profiles.profiles?.email && (
-                                <span className="text-xs text-muted-foreground">
-                                  {(property as any).landlord_profiles.profiles.email}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground italic">Unassigned</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-                          <span className="flex items-center"><Bed className="h-3.5 w-3.5 mr-1" /> {property.bedrooms}</span>
-                          <span className="flex items-center"><ShowerHead className="h-3.5 w-3.5 mr-1" /> {property.bathrooms}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="text-sm font-medium">{property.property_units?.length || 0} Units</span>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{property.total_floors} Floors</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-base">
-                        {formatPrice(property.price_ugx / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <PropertyActions property={property} onEdit={handleEdit} onDelete={() => handleDelete(property.id)} onToggleFeatured={handleToggleFeatured} onReassign={(p: any) => {
-                          setReassignProperty(p)
-                          const current = (p as any).landlord_id || (p as any).landlord_profiles?.id || 'none'
-                          setSelectedLandlordId(current || 'none')
-                          setReassignOpen(true)
-                        }} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <EmptyState colSpan={8} />
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {filteredProperties.length === 0 ? (
+            <div className="rounded-xl border bg-card shadow-sm p-12 text-center">
+              <Home className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No properties found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || categoryFilter !== 'all'
+                  ? 'Try adjusting your search filters'
+                  : 'Get started by creating your first property'}
+              </p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleFeatured={handleToggleFeatured}
+                  onReassign={(p: any) => {
+                    setReassignProperty(p)
+                    const current = (p as any).landlord_id || (p as any).landlord_profiles?.id || 'none'
+                    setSelectedLandlordId(current || 'none')
+                    setReassignOpen(true)
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredProperties.map((property) => (
+                <PropertyListItem
+                  key={property.id}
+                  property={property}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleFeatured={handleToggleFeatured}
+                  onReassign={(p: any) => {
+                    setReassignProperty(p)
+                    const current = (p as any).landlord_id || (p as any).landlord_profiles?.id || 'none'
+                    setSelectedLandlordId(current || 'none')
+                    setReassignOpen(true)
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* --- UNITS VIEW --- */}
@@ -943,5 +893,277 @@ function EmptyState({ colSpan }: { colSpan: number }) {
         </div>
       </TableCell>
     </TableRow>
+  )
+}
+
+// Property Card Component (Grid View)
+function PropertyCard({ property, onEdit, onDelete, onToggleFeatured, onReassign }: {
+  property: Property
+  onEdit: (property: Property) => void
+  onDelete: (id: string) => void
+  onToggleFeatured: (property: Property) => void
+  onReassign: (property: Property) => void
+}) {
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border">
+      {/* Image Section */}
+      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+        {property.image_url ? (
+          <>
+            <img
+              src={property.image_url}
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+            <Home className="h-12 w-12 text-primary/30 group-hover:text-primary/50 transition-colors" />
+          </div>
+        )}
+        
+        {property.is_featured && (
+          <div className="absolute top-2 right-2">
+            <Badge className="bg-amber-500 text-white border-none shadow-lg">
+              <Star className="h-3 w-3 mr-1 fill-white" />
+              Featured
+            </Badge>
+          </div>
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+          <h3 className="font-semibold text-sm mb-0.5 line-clamp-1 drop-shadow-md">
+            {property.title}
+          </h3>
+          <div className="flex items-center text-xs">
+            <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+            <span className="line-clamp-1 drop-shadow">{property.location}</span>
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Badge variant="secondary" className="text-xs">{property.category}</Badge>
+          {property.property_code && (
+            <span className="text-[10px] font-mono text-muted-foreground">{property.property_code}</span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-center p-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+            <div className="flex items-center justify-center gap-1">
+              <Bed className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs font-bold">{property.bedrooms}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Beds</div>
+          </div>
+
+          <div className="text-center p-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
+            <div className="flex items-center justify-center gap-1">
+              <ShowerHead className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              <span className="text-xs font-bold">{property.bathrooms}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Baths</div>
+          </div>
+        </div>
+
+        <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Units / Floors</span>
+            <span className="font-semibold">{property.property_units?.length || 0} / {property.total_floors}</span>
+          </div>
+        </div>
+
+        <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground font-medium">Price</span>
+            <span className="text-sm font-bold text-primary">
+              {formatPrice(property.price_ugx / 100)}
+            </span>
+          </div>
+        </div>
+
+        {(property as any).landlord_profiles && (
+          <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Landlord</div>
+            <div className="text-xs font-medium truncate">
+              {(property as any).landlord_profiles.business_name || 
+               (property as any).landlord_profiles.profiles?.full_name || 
+               'Unknown'}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-1.5 pt-1">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={() => onEdit(property)}
+            className="h-7 text-xs px-2"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => onToggleFeatured(property)}
+            className="h-7 text-xs px-2"
+          >
+            <Star className={`h-3 w-3 ${property.is_featured ? 'fill-amber-500' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(property.id)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Property List Item Component (List View)
+function PropertyListItem({ property, onEdit, onDelete, onToggleFeatured, onReassign }: {
+  property: Property
+  onEdit: (property: Property) => void
+  onDelete: (id: string) => void
+  onToggleFeatured: (property: Property) => void
+  onReassign: (property: Property) => void
+}) {
+  return (
+    <Card className="hover:shadow-md transition-all duration-200 border-l-4 hover:border-l-primary">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          <div className="relative w-full md:w-32 h-32 bg-gradient-to-br from-muted to-muted/50 flex-shrink-0 overflow-hidden group">
+            {property.image_url ? (
+              <img
+                src={property.image_url}
+                alt={property.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                <Home className="h-10 w-10 text-primary/40" />
+              </div>
+            )}
+            {property.is_featured && (
+              <div className="absolute top-2 right-2">
+                <Badge className="bg-amber-500 text-white border-none text-xs">
+                  <Star className="h-3 w-3 mr-1 fill-white" />
+                  Featured
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 p-3">
+            <div className="mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5 text-foreground line-clamp-1">
+                    {property.title}
+                  </h3>
+                  <div className="flex items-center text-xs text-muted-foreground mb-1">
+                    <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="line-clamp-1">{property.location}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">{property.category}</Badge>
+                    {property.property_code && (
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {property.property_code}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => onEdit(property)}
+                    className="h-7 px-2"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onToggleFeatured(property)}
+                    className="h-7 px-2"
+                  >
+                    <Star className={`h-3 w-3 ${property.is_featured ? 'fill-amber-500' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onDelete(property.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-2.5">
+              <div className="flex-1 space-y-2">
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="text-center p-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                    <Bed className="h-3 w-3 text-blue-600 dark:text-blue-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground">Beds</div>
+                    <div className="text-xs font-bold">{property.bedrooms}</div>
+                  </div>
+
+                  <div className="text-center p-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
+                    <ShowerHead className="h-3 w-3 text-purple-600 dark:text-purple-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground">Baths</div>
+                    <div className="text-xs font-bold">{property.bathrooms}</div>
+                  </div>
+
+                  <div className="text-center p-1.5 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/50">
+                    <KeySquare className="h-3 w-3 text-green-600 dark:text-green-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground">Units</div>
+                    <div className="text-xs font-bold">{property.property_units?.length || 0}</div>
+                  </div>
+
+                  <div className="text-center p-1.5 rounded-md bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
+                    <Building2 className="h-3 w-3 text-orange-600 dark:text-orange-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground">Floors</div>
+                    <div className="text-xs font-bold">{property.total_floors}</div>
+                  </div>
+                </div>
+
+                {(property as any).landlord_profiles && (
+                  <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Landlord</div>
+                    <div className="text-xs font-medium">
+                      {(property as any).landlord_profiles.business_name || 
+                       (property as any).landlord_profiles.profiles?.full_name || 
+                       'Unknown'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:w-48 space-y-2 flex-shrink-0">
+                <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] text-muted-foreground font-medium">Price</span>
+                  </div>
+                  <div className="text-sm font-bold text-primary">
+                    {formatPrice(property.price_ugx / 100)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -39,7 +39,13 @@ import {
   UserX,
   Ban,
   ShieldCheck,
-  Star
+  Star,
+  LayoutGrid,
+  List,
+  Users,
+  Building2,
+  MapPin,
+  Edit
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -120,6 +126,7 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({})
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [verificationFilter, setVerificationFilter] = useState<string>("all")
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   // Filter landlords
   const filteredLandlords = useMemo(() => {
@@ -274,24 +281,39 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
         </Card>
       </div>
 
-      {/* Toolbar */}
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex-1 w-full md:w-auto">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search landlords by name, email, business name, or phone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Landlords Directory</CardTitle>
+              <CardDescription>
+                Manage property owners, verify accounts, and track commissions
+              </CardDescription>
             </div>
-            <div className="flex items-center gap-2 w-full md:w-auto">
+            <Button onClick={() => setIsOpen(true)} className="sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              New Landlord
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, business name, or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="w-full lg:w-40">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -302,8 +324,12 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
                   <SelectItem value="suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Verification Filter */}
+            <div className="w-full lg:w-40">
               <Select value={verificationFilter} onValueChange={setVerificationFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger>
                   <SelectValue placeholder="Verification" />
                 </SelectTrigger>
                 <SelectContent>
@@ -314,91 +340,476 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
-              <LandlordDialog
-                landlord={editingLandlord}
-                onClose={() => {
-                  setEditingLandlord(null)
-                  setIsOpen(false)
-                }}
-                onSave={refreshLandlords}
-                isOpen={isOpen}
-                setIsOpen={setIsOpen}
-              />
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        </CardHeader>
-      </Card>
 
-      {/* Landlords Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Landlord</TableHead>
-                  <TableHead>Business Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Properties</TableHead>
-                  <TableHead>Units</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Verification</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                ) : filteredLandlords.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No landlords found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredLandlords.map((landlord) => (
-                    <LandlordRow
-                      key={landlord.id}
-                      landlord={landlord}
-                      isExpanded={expandedLandlordId === landlord.id}
-                      onToggleExpand={() => handleToggleExpand(landlord.id)}
-                      onEdit={() => {
-                        setEditingLandlord(landlord)
-                        setIsOpen(true)
-                      }}
-                      onDelete={async () => {
-                        if (confirm("Are you sure you want to delete this landlord?")) {
-                          const supabase = createClient()
-                          const { error } = await supabase
-                            .from("landlord_profiles")
-                            .delete()
-                            .eq("id", landlord.id)
-                          
-                          if (error) {
-                            toast.error("Failed to delete landlord")
-                          } else {
-                            toast.success("Landlord deleted successfully")
-                            refreshLandlords()
-                          }
-                        }
-                      }}
-                      details={landlordDetails[landlord.id]}
-                      loadingDetails={loadingDetails[landlord.id]}
-                      onRefresh={refreshLandlords}
-                    />
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {/* Landlords List/Grid */}
+          {isLoading ? (
+            <div className="flex items-center justify-center min-h-[400px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredLandlords.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No landlords found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || statusFilter !== 'all' || verificationFilter !== 'all'
+                  ? 'Try adjusting your search filters'
+                  : 'Get started by creating your first landlord'}
+              </p>
+              {!searchQuery && statusFilter === 'all' && verificationFilter === 'all' && (
+                <Button onClick={() => setIsOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Landlord
+                </Button>
+              )}
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredLandlords.map((landlord) => (
+                <LandlordCard
+                  key={landlord.id}
+                  landlord={landlord}
+                  onEdit={() => {
+                    setEditingLandlord(landlord)
+                    setIsOpen(true)
+                  }}
+                  onDelete={async () => {
+                    if (confirm("Are you sure you want to delete this landlord?")) {
+                      const supabase = createClient()
+                      const { error } = await supabase
+                        .from("landlord_profiles")
+                        .delete()
+                        .eq("id", landlord.id)
+                      
+                      if (error) {
+                        toast.error("Failed to delete landlord")
+                      } else {
+                        toast.success("Landlord deleted successfully")
+                        refreshLandlords()
+                      }
+                    }
+                  }}
+                  onView={() => {
+                    setExpandedLandlordId(landlord.id)
+                    fetchLandlordDetails(landlord.id)
+                  }}
+                  onRefresh={refreshLandlords}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredLandlords.map((landlord) => (
+                <LandlordListItem
+                  key={landlord.id}
+                  landlord={landlord}
+                  onEdit={() => {
+                    setEditingLandlord(landlord)
+                    setIsOpen(true)
+                  }}
+                  onDelete={async () => {
+                    if (confirm("Are you sure you want to delete this landlord?")) {
+                      const supabase = createClient()
+                      const { error } = await supabase
+                        .from("landlord_profiles")
+                        .delete()
+                        .eq("id", landlord.id)
+                      
+                      if (error) {
+                        toast.error("Failed to delete landlord")
+                      } else {
+                        toast.success("Landlord deleted successfully")
+                        refreshLandlords()
+                      }
+                    }
+                  }}
+                  onView={() => {
+                    setExpandedLandlordId(landlord.id)
+                    fetchLandlordDetails(landlord.id)
+                  }}
+                  onRefresh={refreshLandlords}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Landlord Dialog */}
+      <LandlordDialog
+        landlord={editingLandlord}
+        onClose={() => {
+          setEditingLandlord(null)
+          setIsOpen(false)
+        }}
+        onSave={refreshLandlords}
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+
+      {/* Landlord Details Dialog */}
+      {expandedLandlordId && (
+        <Dialog open={!!expandedLandlordId} onOpenChange={() => setExpandedLandlordId(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Landlord Details</DialogTitle>
+            </DialogHeader>
+            {loadingDetails[expandedLandlordId] ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <LandlordDetailsView 
+                landlord={landlords.find(l => l.id === expandedLandlordId)!} 
+                details={landlordDetails[expandedLandlordId]} 
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
+  )
+}
+
+// Landlord Card Component (Grid View)
+function LandlordCard({ landlord, onEdit, onDelete, onView, onRefresh }: {
+  landlord: LandlordProfile
+  onEdit: () => void
+  onDelete: () => void
+  onView: () => void
+  onRefresh: () => void
+}) {
+  const supabase = createClient()
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    const { error } = await supabase
+      .from("landlord_profiles")
+      .update({ status: newStatus })
+      .eq("id", landlord.id)
+
+    if (error) {
+      toast.error("Failed to update status")
+    } else {
+      toast.success("Status updated successfully")
+      onRefresh()
+    }
+  }
+
+  const handleUpdateVerification = async (newStatus: string) => {
+    const { error } = await supabase
+      .from("landlord_profiles")
+      .update({ 
+        verification_status: newStatus,
+        verification_date: newStatus === 'verified' ? new Date().toISOString() : null
+      })
+      .eq("id", landlord.id)
+
+    if (error) {
+      toast.error("Failed to update verification status")
+    } else {
+      toast.success("Verification status updated successfully")
+      onRefresh()
+    }
+  }
+
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background p-4 border-b">
+        <div className="flex items-start gap-3">
+          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base mb-0.5 line-clamp-1">
+              {landlord.profiles?.full_name || "N/A"}
+            </h3>
+            <div className="flex items-center text-xs text-muted-foreground mb-1">
+              <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+              <span className="line-clamp-1">{landlord.profiles?.email}</span>
+            </div>
+            {landlord.business_name && (
+              <div className="flex items-center text-xs font-medium text-foreground">
+                <Building2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="line-clamp-1">{landlord.business_name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status Badges */}
+        <div className="flex gap-2 mt-3">
+          <StatusBadge status={landlord.status} />
+          <VerificationBadge status={landlord.verification_status} />
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <CardContent className="p-3 space-y-2.5">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-center p-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+            <Building className="h-4 w-4 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
+            <div className="text-[10px] text-muted-foreground leading-tight">Properties</div>
+            <div className="text-sm font-bold text-foreground">{landlord.total_properties || 0}</div>
+          </div>
+
+          <div className="text-center p-2 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
+            <Home className="h-4 w-4 text-purple-600 dark:text-purple-400 mx-auto mb-1" />
+            <div className="text-[10px] text-muted-foreground leading-tight">Units</div>
+            <div className="text-sm font-bold text-foreground">{landlord.total_units || 0}</div>
+          </div>
+        </div>
+
+        {/* Contact Info */}
+        <div className="bg-muted/40 rounded-lg p-2 border border-muted/60 space-y-1">
+          {landlord.phone_number && (
+            <div className="flex items-center gap-2 text-xs">
+              <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <span className="font-medium truncate">{landlord.phone_number}</span>
+            </div>
+          )}
+          {landlord.mobile_money_number && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CreditCard className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{landlord.mobile_money_provider}: {landlord.mobile_money_number}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Commission Info */}
+        <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="h-3 w-3 text-primary" />
+              <span className="text-[10px] text-muted-foreground font-medium">Commission</span>
+            </div>
+            <span className="text-sm font-bold text-primary">{landlord.commission_rate}%</span>
+          </div>
+          {landlord.payment_schedule && (
+            <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">{landlord.payment_schedule}</div>
+          )}
+        </div>
+
+        {/* Rating */}
+        {landlord.rating && landlord.rating > 0 && (
+          <div className="flex items-center justify-center gap-1 py-1">
+            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+            <span className="text-xs font-semibold">{landlord.rating.toFixed(1)}</span>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-3 gap-1.5 pt-1">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={onView}
+            className="h-7 text-xs px-2"
+          >
+            <Eye className="h-3 w-3" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onEdit}
+            className="h-7 text-xs px-2"
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Landlord List Item Component (List View)
+function LandlordListItem({ landlord, onEdit, onDelete, onView, onRefresh }: {
+  landlord: LandlordProfile
+  onEdit: () => void
+  onDelete: () => void
+  onView: () => void
+  onRefresh: () => void
+}) {
+  const supabase = createClient()
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    const { error } = await supabase
+      .from("landlord_profiles")
+      .update({ status: newStatus })
+      .eq("id", landlord.id)
+
+    if (error) {
+      toast.error("Failed to update status")
+    } else {
+      toast.success("Status updated successfully")
+      onRefresh()
+    }
+  }
+
+  return (
+    <Card className="hover:shadow-md transition-all duration-200 border-l-4 hover:border-l-primary">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          {/* Avatar Section */}
+          <div className="relative w-full md:w-32 h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex-shrink-0 overflow-hidden group">
+            <div className="w-full h-full flex items-center justify-center">
+              <User className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform" />
+            </div>
+            {/* Status Badge Overlay */}
+            <div className="absolute top-2 right-2">
+              <StatusBadge status={landlord.status} />
+            </div>
+          </div>
+
+          {/* Content Section */}
+          <div className="flex-1 p-3">
+            {/* Header */}
+            <div className="mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5 text-foreground line-clamp-1">
+                    {landlord.profiles?.full_name || "N/A"}
+                  </h3>
+                  <div className="flex items-center text-xs text-muted-foreground mb-0.5">
+                    <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="line-clamp-1">{landlord.profiles?.email}</span>
+                  </div>
+                  {landlord.business_name && (
+                    <div className="flex items-center text-xs font-medium text-foreground">
+                      <Building2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="line-clamp-1">{landlord.business_name}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={onView}
+                    className="h-7 px-2"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={onEdit}
+                    className="h-7 px-2"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <VerificationBadge status={landlord.verification_status} />
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-2.5">
+              {/* Left Column: Stats & Contact */}
+              <div className="flex-1 space-y-2">
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-center p-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                    <Building className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground leading-tight">Properties</div>
+                    <div className="text-xs font-bold text-foreground">{landlord.total_properties || 0}</div>
+                  </div>
+
+                  <div className="text-center p-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
+                    <Home className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 mx-auto mb-0.5" />
+                    <div className="text-[10px] text-muted-foreground leading-tight">Units</div>
+                    <div className="text-xs font-bold text-foreground">{landlord.total_units || 0}</div>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div className="bg-muted/40 rounded-lg p-2 border border-muted/60 space-y-1">
+                  {landlord.phone_number && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="font-medium">{landlord.phone_number}</span>
+                    </div>
+                  )}
+                  {landlord.mobile_money_number && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <CreditCard className="h-3 w-3 flex-shrink-0" />
+                      <span>{landlord.mobile_money_provider}: {landlord.mobile_money_number}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Commission & Rating */}
+              <div className="lg:w-48 space-y-2 flex-shrink-0">
+                {/* Commission */}
+                <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="h-3 w-3 text-primary" />
+                      <span className="text-[10px] text-muted-foreground font-medium">Commission</span>
+                    </div>
+                    <span className="text-sm font-bold text-primary">{landlord.commission_rate}%</span>
+                  </div>
+                  {landlord.payment_schedule && (
+                    <div className="text-[10px] text-muted-foreground capitalize">{landlord.payment_schedule}</div>
+                  )}
+                </div>
+
+                {/* Rating */}
+                {landlord.rating && landlord.rating > 0 && (
+                  <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground font-medium">Rating</span>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                        <span className="text-xs font-semibold">{landlord.rating.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

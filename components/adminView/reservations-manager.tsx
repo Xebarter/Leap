@@ -27,7 +27,10 @@ import {
   RefreshCw,
   Filter,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  LayoutGrid,
+  List,
+  Edit
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -45,6 +48,7 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedReservation, setSelectedReservation] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const { toast } = useToast()
 
   // Calculate statistics
@@ -223,12 +227,12 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
         </Card>
       </div>
 
-      {/* Filters and Actions */}
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle>All Reservations</CardTitle>
+              <CardTitle>Reservations Directory</CardTitle>
               <CardDescription>
                 Manage and track property reservations
               </CardDescription>
@@ -243,320 +247,124 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
                 <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by tenant name, email, property, or reservation number..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Filter className="h-4 w-4" />
-              <span className="font-medium">Status:</span>
+        <CardContent>
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by tenant, property, or reservation number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              All ({stats.total})
-            </Button>
-            <Button
-              variant={statusFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("pending")}
-            >
-              Pending ({stats.pending})
-            </Button>
-            <Button
-              variant={statusFilter === "confirmed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("confirmed")}
-            >
-              Confirmed ({stats.confirmed})
-            </Button>
-            <Button
-              variant={statusFilter === "cancelled" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("cancelled")}
-            >
-              Cancelled ({stats.cancelled})
-            </Button>
-            <Button
-              variant={statusFilter === "expired" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("expired")}
-            >
-              Expired ({stats.expired})
-            </Button>
 
-            <div className="w-px h-6 bg-border mx-1" />
-
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <span className="font-medium">Payment:</span>
+            {/* Status Filter */}
+            <div className="w-full lg:w-40">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="expired">Expired</option>
+              </select>
             </div>
-            <Button
-              variant={paymentFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPaymentFilter("all")}
-            >
-              All
-            </Button>
-            <Button
-              variant={paymentFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPaymentFilter("pending")}
-            >
-              Pending
-            </Button>
-            <Button
-              variant={paymentFilter === "paid" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPaymentFilter("paid")}
-            >
-              Paid
-            </Button>
+
+            {/* Payment Filter */}
+            <div className="w-full lg:w-40">
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value as any)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="all">All Payments</option>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Results Count */}
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Showing <strong className="text-foreground">{filteredReservations.length}</strong> of{" "}
-              <strong className="text-foreground">{stats.total}</strong> reservations
-            </span>
-          </div>
+          {/* Reservations List/Grid */}
+          {filteredReservations.length === 0 ? (
+            <div className="text-center py-12">
+              <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No reservations found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || statusFilter !== "all" || paymentFilter !== "all"
+                  ? 'Try adjusting your search filters'
+                  : 'No property reservations yet'}
+              </p>
+              {(searchQuery || statusFilter !== "all" || paymentFilter !== "all") && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setStatusFilter("all")
+                    setPaymentFilter("all")
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredReservations.map((reservation) => (
+                <ReservationCard
+                  key={reservation.id}
+                  reservation={reservation}
+                  getStatusBadge={getStatusBadge}
+                  getPaymentBadge={getPaymentBadge}
+                  onView={viewDetails}
+                  onConfirm={(id) => updateReservationStatus(id, "confirmed")}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredReservations.map((reservation) => (
+                <ReservationListItem
+                  key={reservation.id}
+                  reservation={reservation}
+                  getStatusBadge={getStatusBadge}
+                  getPaymentBadge={getPaymentBadge}
+                  onView={viewDetails}
+                  onConfirm={(id) => updateReservationStatus(id, "confirmed")}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Reservations Table */}
-      {filteredReservations.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="rounded-full bg-muted p-4 mb-4">
-              <Shield className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No reservations found</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              {searchQuery || statusFilter !== "all" || paymentFilter !== "all"
-                ? "Try adjusting your filters or search query to see more results."
-                : "When tenants reserve properties, they'll appear here."}
-            </p>
-            {(searchQuery || statusFilter !== "all" || paymentFilter !== "all") && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchQuery("")
-                  setStatusFilter("all")
-                  setPaymentFilter("all")
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Mobile Card View */}
-          <div className="block lg:hidden space-y-3">
-            {filteredReservations.map((reservation) => (
-              <Card key={reservation.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                        <User className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">
-                          {reservation.profiles?.full_name || "Unknown"}
-                        </div>
-                        <Badge variant="outline" className="text-xs mt-1 font-mono">
-                          {reservation.reservation_number}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      {getStatusBadge(reservation.status)}
-                      {getPaymentBadge(reservation.payment_status)}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="font-medium">{reservation.properties?.title || "N/A"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span>{reservation.properties?.location || "N/A"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="font-semibold">
-                        UGX {(reservation.reservation_amount / 100).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4 flex-shrink-0" />
-                      <span>{format(new Date(reservation.reserved_at), "MMM d, yyyy")}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-4 pt-3 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => viewDetails(reservation)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Details
-                    </Button>
-                    {reservation.status === 'pending' && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="flex-1"
-                        onClick={() => updateReservationStatus(reservation.id, "confirmed")}
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Confirm
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop Table View */}
-          <Card className="hidden lg:block">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Reservation #</TableHead>
-                    <TableHead className="font-semibold">Tenant</TableHead>
-                    <TableHead className="font-semibold">Property</TableHead>
-                    <TableHead className="font-semibold">Amount</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Payment</TableHead>
-                    <TableHead className="font-semibold">Date</TableHead>
-                    <TableHead className="w-[80px] text-right font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono">
-                          {reservation.reservation_number}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                            <User className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-medium truncate">
-                              {reservation.profiles?.full_name || "Unknown"}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {reservation.profiles?.email}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium text-sm">
-                            {reservation.properties?.title || "N/A"}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{reservation.properties?.location || "N/A"}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="font-semibold text-green-600 dark:text-green-400">
-                          UGX {(reservation.reservation_amount / 100).toLocaleString()}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        {getStatusBadge(reservation.status)}
-                      </TableCell>
-                      
-                      <TableCell>
-                        {getPaymentBadge(reservation.payment_status)}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-sm">
-                          {format(new Date(reservation.reserved_at), "MMM d, yyyy")}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={() => viewDetails(reservation)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            {reservation.status === 'pending' && (
-                              <DropdownMenuItem 
-                                onClick={() => updateReservationStatus(reservation.id, "confirmed")}
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                                Confirm Reservation
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => updateReservationStatus(reservation.id, "cancelled")}
-                            >
-                              <XCircle className="mr-2 h-4 w-4" />
-                              Cancel Reservation
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
-        </>
-      )}
-
-      {/* Details Dialog */}
+      {/* Details Dialog - Kept from original implementation */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -573,13 +381,13 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Reservation Number</Label>
+                  <p className="text-xs text-muted-foreground">Reservation Number</p>
                   <Badge variant="outline" className="font-mono mt-1">
                     {selectedReservation.reservation_number}
                   </Badge>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <p className="text-xs text-muted-foreground">Status</p>
                   <div className="mt-1">{getStatusBadge(selectedReservation.status)}</div>
                 </div>
               </div>
@@ -587,7 +395,7 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
               <Separator />
 
               <div>
-                <Label className="text-xs text-muted-foreground">Tenant</Label>
+                <p className="text-xs text-muted-foreground">Tenant</p>
                 <div className="mt-2 space-y-1">
                   <div className="font-medium">{selectedReservation.profiles?.full_name}</div>
                   <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -604,7 +412,7 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
               <Separator />
 
               <div>
-                <Label className="text-xs text-muted-foreground">Property</Label>
+                <p className="text-xs text-muted-foreground">Property</p>
                 <div className="mt-2 space-y-1">
                   <div className="font-medium">{selectedReservation.properties?.title}</div>
                   <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -618,20 +426,20 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Reservation Amount</Label>
+                  <p className="text-xs text-muted-foreground">Reservation Amount</p>
                   <div className="font-semibold text-lg text-green-600 dark:text-green-400 mt-1">
                     UGX {(selectedReservation.reservation_amount / 100).toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Payment Status</Label>
+                  <p className="text-xs text-muted-foreground">Payment Status</p>
                   <div className="mt-1">{getPaymentBadge(selectedReservation.payment_status)}</div>
                 </div>
               </div>
 
               {selectedReservation.payment_method && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Payment Method</Label>
+                  <p className="text-xs text-muted-foreground">Payment Method</p>
                   <div className="mt-1 text-sm capitalize">{selectedReservation.payment_method.replace('_', ' ')}</div>
                 </div>
               )}
@@ -640,13 +448,13 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Reserved On</Label>
+                  <p className="text-xs text-muted-foreground">Reserved On</p>
                   <div className="mt-1 text-sm">
                     {format(new Date(selectedReservation.reserved_at), "PPP")}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Expires On</Label>
+                  <p className="text-xs text-muted-foreground">Expires On</p>
                   <div className="mt-1 text-sm">
                     {format(new Date(selectedReservation.expires_at), "PPP")}
                   </div>
@@ -655,7 +463,7 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
 
               {selectedReservation.move_in_date && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Intended Move-in Date</Label>
+                  <p className="text-xs text-muted-foreground">Intended Move-in Date</p>
                   <div className="mt-1 text-sm">
                     {format(new Date(selectedReservation.move_in_date), "PPP")}
                   </div>
@@ -666,7 +474,7 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
                 <>
                   <Separator />
                   <div>
-                    <Label className="text-xs text-muted-foreground">Notes</Label>
+                    <p className="text-xs text-muted-foreground">Notes</p>
                     <div className="mt-1 text-sm text-muted-foreground bg-muted/50 rounded p-3">
                       {selectedReservation.notes}
                     </div>
@@ -680,3 +488,200 @@ export function ReservationsManager({ initialReservations }: ReservationsManager
     </>
   )
 }
+
+// Reservation Card Component (Grid View)
+function ReservationCard({ reservation, getStatusBadge, getPaymentBadge, onView, onConfirm }: {
+  reservation: any
+  getStatusBadge: (status: string) => JSX.Element
+  getPaymentBadge: (status: string) => JSX.Element
+  onView: (reservation: any) => void
+  onConfirm: (id: string) => void
+}) {
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background p-3 border-b">
+        <div className="flex items-start gap-2">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm mb-0.5 line-clamp-1">
+              {reservation.profiles?.full_name || "Unknown"}
+            </h3>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {reservation.reservation_number}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Status Badges */}
+        <div className="flex gap-2 mt-2">
+          {getStatusBadge(reservation.status)}
+          {getPaymentBadge(reservation.payment_status)}
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <CardContent className="p-3 space-y-2">
+        {/* Property Info */}
+        <div className="bg-muted/40 rounded-lg p-2 border border-muted/60 space-y-1">
+          <div className="flex items-center gap-2 text-xs">
+            <Home className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <span className="font-medium truncate">{reservation.properties?.title || "N/A"}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{reservation.properties?.location || "N/A"}</span>
+          </div>
+        </div>
+
+        {/* Amount */}
+        <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="h-3 w-3 text-primary" />
+              <span className="text-[10px] text-muted-foreground font-medium">Amount</span>
+            </div>
+            <span className="text-sm font-bold text-primary">
+              UGX {(reservation.reservation_amount / 100).toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        {/* Reserved Date */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3 flex-shrink-0" />
+          <span>{format(new Date(reservation.reserved_at), "MMM d, yyyy")}</span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={() => onView(reservation)}
+            className="h-7 text-xs px-2"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            View
+          </Button>
+          {reservation.status === 'pending' && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onConfirm(reservation.id)}
+              className="h-7 text-xs px-2"
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Confirm
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Reservation List Item Component (List View)
+function ReservationListItem({ reservation, getStatusBadge, getPaymentBadge, onView, onConfirm }: {
+  reservation: any
+  getStatusBadge: (status: string) => JSX.Element
+  getPaymentBadge: (status: string) => JSX.Element
+  onView: (reservation: any) => void
+  onConfirm: (id: string) => void
+}) {
+  return (
+    <Card className="hover:shadow-md transition-all duration-200 border-l-4 hover:border-l-primary">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          {/* Avatar Section */}
+          <div className="relative w-full md:w-32 h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex-shrink-0 overflow-hidden group">
+            <div className="w-full h-full flex items-center justify-center">
+              <Shield className="h-12 w-12 text-primary/40 group-hover:scale-110 transition-transform" />
+            </div>
+            {/* Status Badge Overlay */}
+            <div className="absolute top-2 right-2">
+              {getStatusBadge(reservation.status)}
+            </div>
+          </div>
+
+          {/* Content Section */}
+          <div className="flex-1 p-3">
+            {/* Header */}
+            <div className="mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5 text-foreground line-clamp-1">
+                    {reservation.profiles?.full_name || "Unknown"}
+                  </h3>
+                  <Badge variant="outline" className="text-xs font-mono mt-1">
+                    {reservation.reservation_number}
+                  </Badge>
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => onView(reservation)}
+                    className="h-7 px-2"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  {reservation.status === 'pending' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onConfirm(reservation.id)}
+                      className="h-7 px-2"
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {getPaymentBadge(reservation.payment_status)}
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-2.5">
+              {/* Left Column: Property Info */}
+              <div className="flex-1 space-y-2">
+                <div className="bg-muted/40 rounded-lg p-2 border border-muted/60 space-y-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Home className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <span className="font-medium">{reservation.properties?.title || "N/A"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                    <span>{reservation.properties?.location || "N/A"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3 flex-shrink-0" />
+                    <span>{format(new Date(reservation.reserved_at), "MMM d, yyyy")}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Amount */}
+              <div className="lg:w-48 space-y-2 flex-shrink-0">
+                <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="h-3 w-3 text-primary" />
+                      <span className="text-[10px] text-muted-foreground font-medium">Amount</span>
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold text-primary">
+                    UGX {(reservation.reservation_amount / 100).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+

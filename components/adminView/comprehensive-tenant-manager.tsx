@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { format, addMonths, differenceInDays, isPast } from "date-fns"
-import { Search, User, Mail, Phone, Calendar, Plus, Pencil, Trash2, MoreHorizontal, Eye, MapPin, Home, CreditCard, CheckCircle, XCircle, Clock, Building, DollarSign, TrendingUp, History, FileText, Download } from "lucide-react"
+import { Search, User, Mail, Phone, Calendar, Plus, Pencil, Trash2, MoreHorizontal, Eye, MapPin, Home, CreditCard, CheckCircle, XCircle, Clock, Building, DollarSign, TrendingUp, History, FileText, Download, LayoutGrid, List, Users, Edit, Shield } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,12 +24,22 @@ export function ComprehensiveTenantManager({ initialTenants, initialApplications
   const [expandedTenantId, setExpandedTenantId] = useState<string | null>(null)
   const [tenantDetails, setTenantDetails] = useState<Record<string, any>>({})
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({})
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [roleFilter, setRoleFilter] = useState<string>("all")
 
   const filteredTenants = tenants.filter(
-    (t) =>
-      t.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.phone?.toLowerCase().includes(searchQuery.toLowerCase()),
+    (t) => {
+      const matchesSearch = 
+        t.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.phone?.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      const matchesRole = roleFilter === "all" || 
+        (roleFilter === "admin" && t.is_admin) ||
+        (roleFilter === "tenant" && !t.is_admin)
+      
+      return matchesSearch && matchesRole
+    }
   )
 
   // Fetch comprehensive tenant details when expanded
@@ -141,109 +151,107 @@ export function ComprehensiveTenantManager({ initialTenants, initialApplications
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-xl font-semibold">Tenants</h3>
-          <p className="text-sm text-muted-foreground">Manage registered tenants and their information.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tenants..."
-              className="pl-9 w-[200px] lg:w-[300px]"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+      {/* Search and Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Tenants Directory</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Manage registered tenants and their information</p>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tenant</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead className="w-[100px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTenants.map((tenant) => (
-              <TableRow key={tenant.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-medium">{tenant.full_name || "No name"}</div>
-                      <div className="text-xs text-muted-foreground">ID: {tenant.id.substring(0, 8)}...</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {tenant.email}
-                    </div>
-                    {tenant.phone && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {tenant.phone}
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {tenant.is_admin ? (
-                    <Badge className="bg-red-500/10 text-red-500 border-none">Admin</Badge>
-                  ) : (
-                    <Badge className="bg-blue-500/10 text-blue-500 border-none">Tenant</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-sm">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {tenant.created_at ? format(new Date(tenant.created_at), "MMM d, yyyy") : "N/A"}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingTenant(tenant)
-                          setIsOpen(true)
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // toggleAdminStatus(tenant.id, tenant.is_admin)
-                        }}
-                      >
-                        {tenant.is_admin ? "Revoke Admin" : "Make Admin"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            {/* Role Filter */}
+            <div className="w-full lg:w-40">
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="all">All Roles</option>
+                <option value="tenant">Tenants</option>
+                <option value="admin">Admins</option>
+              </select>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Tenants List/Grid */}
+          {filteredTenants.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No tenants found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || roleFilter !== 'all'
+                  ? 'Try adjusting your search filters'
+                  : 'No registered tenants yet'}
+              </p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredTenants.map((tenant) => (
+                <TenantCard
+                  key={tenant.id}
+                  tenant={tenant}
+                  onEdit={() => {
+                    setEditingTenant(tenant)
+                    setIsOpen(true)
+                  }}
+                  onView={() => {
+                    setExpandedTenantId(tenant.id)
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredTenants.map((tenant) => (
+                <TenantListItem
+                  key={tenant.id}
+                  tenant={tenant}
+                  onEdit={() => {
+                    setEditingTenant(tenant)
+                    setIsOpen(true)
+                  }}
+                  onView={() => {
+                    setExpandedTenantId(tenant.id)
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Accordion for comprehensive tenant details */}
       <div className="mt-8">
@@ -567,7 +575,28 @@ export function ComprehensiveTenantManager({ initialTenants, initialApplications
         </Accordion>
       </div>
 
-      {/* Edit Tenant Dialog - Hidden but available when needed */}
+      {/* Tenant Details Dialog */}
+      {expandedTenantId && (
+        <Dialog open={!!expandedTenantId} onOpenChange={() => setExpandedTenantId(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Tenant Details</DialogTitle>
+            </DialogHeader>
+            {loadingDetails[expandedTenantId] ? (
+              <div className="py-4 text-center text-muted-foreground">Loading tenant details...</div>
+            ) : (
+              <TenantDetailsView 
+                tenant={tenants.find(t => t.id === expandedTenantId)!}
+                details={tenantDetails[expandedTenantId]}
+                getStatusBadge={getStatusBadge}
+                formatDate={formatDate}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Tenant Dialog */}
       <Dialog
         open={isOpen}
         onOpenChange={(val) => {
@@ -612,6 +641,273 @@ export function ComprehensiveTenantManager({ initialTenants, initialApplications
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// Tenant Card Component (Grid View)
+function TenantCard({ tenant, onEdit, onView }: {
+  tenant: any
+  onEdit: () => void
+  onView: () => void
+}) {
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background p-4 border-b">
+        <div className="flex items-start gap-3">
+          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base mb-0.5 line-clamp-1">
+              {tenant.full_name || "No name"}
+            </h3>
+            <div className="flex items-center text-xs text-muted-foreground mb-1">
+              <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+              <span className="line-clamp-1">{tenant.email}</span>
+            </div>
+            {tenant.phone && (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Phone className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="line-clamp-1">{tenant.phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Role Badge */}
+        <div className="mt-3">
+          {tenant.is_admin ? (
+            <Badge className="bg-red-500/10 text-red-500 border-none">
+              <Shield className="h-3 w-3 mr-1" />
+              Admin
+            </Badge>
+          ) : (
+            <Badge className="bg-blue-500/10 text-blue-500 border-none">
+              <User className="h-3 w-3 mr-1" />
+              Tenant
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <CardContent className="p-3 space-y-2.5">
+        {/* Member Since */}
+        <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+          <div className="flex items-center gap-2 text-xs">
+            <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <div>
+              <div className="text-muted-foreground">Member Since</div>
+              <div className="font-medium text-foreground">
+                {tenant.created_at ? format(new Date(tenant.created_at), "MMM d, yyyy") : "N/A"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tenant ID */}
+        <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground font-medium">Tenant ID</span>
+            <span className="text-xs font-mono font-semibold text-primary">{tenant.id.substring(0, 8)}...</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={onView}
+            className="h-7 text-xs px-2"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            View
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onEdit}
+            className="h-7 text-xs px-2"
+          >
+            <Edit className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Tenant List Item Component (List View)
+function TenantListItem({ tenant, onEdit, onView }: {
+  tenant: any
+  onEdit: () => void
+  onView: () => void
+}) {
+  return (
+    <Card className="hover:shadow-md transition-all duration-200 border-l-4 hover:border-l-primary">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          {/* Avatar Section */}
+          <div className="relative w-full md:w-32 h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex-shrink-0 overflow-hidden group">
+            <div className="w-full h-full flex items-center justify-center">
+              <User className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform" />
+            </div>
+            {/* Role Badge Overlay */}
+            <div className="absolute top-2 right-2">
+              {tenant.is_admin ? (
+                <Badge className="bg-red-500/10 text-red-500 border-none text-xs">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Admin
+                </Badge>
+              ) : (
+                <Badge className="bg-blue-500/10 text-blue-500 border-none text-xs">
+                  Tenant
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Content Section */}
+          <div className="flex-1 p-3">
+            {/* Header */}
+            <div className="mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5 text-foreground line-clamp-1">
+                    {tenant.full_name || "No name"}
+                  </h3>
+                  <div className="flex items-center text-xs text-muted-foreground mb-0.5">
+                    <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="line-clamp-1">{tenant.email}</span>
+                  </div>
+                  {tenant.phone && (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <Phone className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="line-clamp-1">{tenant.phone}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={onView}
+                    className="h-7 px-2"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={onEdit}
+                    className="h-7 px-2"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-2.5">
+              {/* Left Column: Member Info */}
+              <div className="flex-1 space-y-2">
+                <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="text-muted-foreground">Member Since</div>
+                      <div className="font-medium text-foreground">
+                        {tenant.created_at ? format(new Date(tenant.created_at), "MMM d, yyyy") : "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Tenant ID */}
+              <div className="lg:w-48 space-y-2 flex-shrink-0">
+                <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] text-muted-foreground font-medium">Tenant ID</span>
+                  </div>
+                  <div className="text-xs font-mono font-semibold text-primary">{tenant.id.substring(0, 12)}...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Tenant Details View Component
+function TenantDetailsView({ tenant, details, getStatusBadge, formatDate }: {
+  tenant: any
+  details: any
+  getStatusBadge: (status: string) => JSX.Element
+  formatDate: (dateString: string) => string
+}) {
+  const { 
+    currentBooking, 
+    daysRented, 
+    monthsRented, 
+    nextPaymentDate, 
+    monthsAhead, 
+    totalSpent, 
+    bookingHistory,
+    currentBookings,
+    paymentHistory 
+  } = details || {}
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Personal Information Card */}
+      <div className="lg:col-span-1 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <User className="h-4 w-4" /> Personal Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><span className="font-medium">Full Name:</span> {tenant.full_name || "N/A"}</p>
+              <p><span className="font-medium">Email:</span> {tenant.email || "N/A"}</p>
+              <p><span className="font-medium">Phone:</span> {tenant.phone || "N/A"}</p>
+              <p><span className="font-medium">Member Since:</span> {tenant.created_at ? format(new Date(tenant.created_at), "MMM d, yyyy") : "N/A"}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CreditCard className="h-4 w-4" /> Role & Permissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><span className="font-medium">Role:</span> {tenant.is_admin ? "Administrator" : "Standard Tenant"}</p>
+              <p className="text-xs text-muted-foreground">
+                {tenant.is_admin 
+                  ? "Has administrative privileges to manage properties and bookings." 
+                  : "Standard tenant with booking and reservation capabilities."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Rental Information - Rest of the details */}
+      <div className="lg:col-span-2">
+        <p className="text-sm text-muted-foreground">Detailed rental and payment history will be displayed here.</p>
+      </div>
     </div>
   )
 }

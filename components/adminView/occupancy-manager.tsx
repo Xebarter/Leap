@@ -37,6 +37,13 @@ import {
   CheckCircle,
   History,
   Loader2,
+  LayoutGrid,
+  List,
+  Search,
+  MapPin,
+  Mail,
+  Phone,
+  Eye,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -100,7 +107,28 @@ export function OccupancyManager() {
   const [extensionReason, setExtensionReason] = useState('')
   const [cancellationReason, setCancellationReason] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'expiring' | 'expired' | 'active'>('all')
   const { toast } = useToast()
+
+  // Filter properties based on search and status
+  const filteredProperties = properties.filter(property => {
+    const matchesSearch = 
+      property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      property.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      property.property_code?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const daysRemaining = getDaysRemaining(property.occupancy_end_date)
+    const matchesStatus = 
+      statusFilter === 'all' ||
+      (statusFilter === 'expired' && daysRemaining < 0) ||
+      (statusFilter === 'expiring' && daysRemaining >= 0 && daysRemaining <= 30) ||
+      (statusFilter === 'active' && daysRemaining > 30)
+
+    return matchesSearch && matchesStatus
+  })
 
   useEffect(() => {
     fetchOccupiedProperties()
@@ -366,103 +394,140 @@ export function OccupancyManager() {
         </Card>
       </div>
 
-      {/* Properties Table */}
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Occupied Properties</CardTitle>
-          <CardDescription>
-            {properties.length} properties currently occupied
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Occupancies Directory</CardTitle>
+              <CardDescription>
+                Manage occupied properties and extend periods
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                fetchHistory()
+                setShowHistoryDialog(true)
+              }}
+              className="sm:w-auto"
+            >
+              <History className="w-4 h-4 mr-2" />
+              View All History
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {properties.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Home className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No occupied properties at the moment</p>
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by property, tenant, or code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="w-full lg:w-40">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="expiring">Expiring Soon</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Occupancies List/Grid */}
+          {filteredProperties.length === 0 ? (
+            <div className="text-center py-12">
+              <Home className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">No occupancies found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || statusFilter !== 'all'
+                  ? 'Try adjusting your search filters'
+                  : 'No occupied properties at the moment'}
+              </p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProperties.map((property) => (
+                <OccupancyCard
+                  key={property.id}
+                  property={property}
+                  getDaysRemaining={getDaysRemaining}
+                  getStatusBadge={getStatusBadge}
+                  formatDate={formatDate}
+                  onExtend={() => {
+                    setSelectedProperty(property)
+                    setShowExtendDialog(true)
+                  }}
+                  onHistory={() => {
+                    fetchHistory(property.id)
+                    setSelectedProperty(property)
+                    setShowHistoryDialog(true)
+                  }}
+                  onCancel={() => {
+                    setSelectedProperty(property)
+                    setShowCancelDialog(true)
+                  }}
+                />
+              ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Months Paid</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {properties.map((property) => (
-                  <TableRow key={property.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{property.title}</div>
-                        <div className="text-sm text-muted-foreground">{property.location}</div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {property.property_code}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{property.profiles?.full_name || 'Unknown'}</div>
-                        <div className="text-sm text-muted-foreground">{property.profiles?.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(property.occupancy_start_date)}</TableCell>
-                    <TableCell>{formatDate(property.occupancy_end_date)}</TableCell>
-                    <TableCell>{getStatusBadge(property.occupancy_end_date)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{property.paid_months} months</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedProperty(property)
-                            setShowExtendDialog(true)
-                          }}
-                          disabled={!property.can_extend_occupancy}
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Extend
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            fetchHistory(property.id)
-                            setSelectedProperty(property)
-                            setShowHistoryDialog(true)
-                          }}
-                        >
-                          <History className="w-4 h-4 mr-1" />
-                          History
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => {
-                            setSelectedProperty(property)
-                            setShowCancelDialog(true)
-                          }}
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-4">
+              {filteredProperties.map((property) => (
+                <OccupancyListItem
+                  key={property.id}
+                  property={property}
+                  getDaysRemaining={getDaysRemaining}
+                  getStatusBadge={getStatusBadge}
+                  formatDate={formatDate}
+                  onExtend={() => {
+                    setSelectedProperty(property)
+                    setShowExtendDialog(true)
+                  }}
+                  onHistory={() => {
+                    fetchHistory(property.id)
+                    setSelectedProperty(property)
+                    setShowHistoryDialog(true)
+                  }}
+                  onCancel={() => {
+                    setSelectedProperty(property)
+                    setShowCancelDialog(true)
+                  }}
+                />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
+
 
       {/* Extend Dialog */}
       <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
@@ -657,5 +722,236 @@ export function OccupancyManager() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// Occupancy Card Component (Grid View)
+function OccupancyCard({ property, getDaysRemaining, getStatusBadge, formatDate, onExtend, onHistory, onCancel }: {
+  property: Property
+  getDaysRemaining: (endDate: string) => number
+  getStatusBadge: (endDate: string) => JSX.Element
+  formatDate: (dateString: string) => string
+  onExtend: () => void
+  onHistory: () => void
+  onCancel: () => void
+}) {
+  const daysRemaining = getDaysRemaining(property.occupancy_end_date)
+  
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background p-3 border-b">
+        <div className="flex items-start gap-2">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+            <Home className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm mb-0.5 line-clamp-1">
+              {property.title}
+            </h3>
+            <div className="flex items-center text-xs text-muted-foreground mb-1">
+              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+              <span className="line-clamp-1">{property.location}</span>
+            </div>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {property.property_code}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div className="mt-2">
+          {getStatusBadge(property.occupancy_end_date)}
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <CardContent className="p-3 space-y-2">
+        {/* Tenant Info */}
+        <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+          <div className="flex items-center gap-2 text-xs mb-1">
+            <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <span className="font-medium truncate">{property.profiles?.full_name || 'Unknown'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Mail className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{property.profiles?.email}</span>
+          </div>
+        </div>
+
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Start Date</div>
+            <div className="text-xs font-medium">{formatDate(property.occupancy_start_date)}</div>
+          </div>
+          <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+            <div className="text-[10px] text-muted-foreground mb-0.5">End Date</div>
+            <div className="text-xs font-medium">{formatDate(property.occupancy_end_date)}</div>
+          </div>
+        </div>
+
+        {/* Months Paid */}
+        <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 text-primary" />
+              <span className="text-[10px] text-muted-foreground font-medium">Months Paid</span>
+            </div>
+            <span className="text-sm font-bold text-primary">{property.paid_months}</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-3 gap-1.5 pt-1">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={onExtend}
+            disabled={!property.can_extend_occupancy}
+            className="h-7 text-xs px-2"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onHistory}
+            className="h-7 text-xs px-2"
+          >
+            <History className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onCancel}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Occupancy List Item Component (List View)
+function OccupancyListItem({ property, getDaysRemaining, getStatusBadge, formatDate, onExtend, onHistory, onCancel }: {
+  property: Property
+  getDaysRemaining: (endDate: string) => number
+  getStatusBadge: (endDate: string) => JSX.Element
+  formatDate: (dateString: string) => string
+  onExtend: () => void
+  onHistory: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Card className="hover:shadow-md transition-all duration-200 border-l-4 hover:border-l-primary">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          {/* Icon Section */}
+          <div className="relative w-full md:w-32 h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex-shrink-0 overflow-hidden group">
+            <div className="w-full h-full flex items-center justify-center">
+              <Home className="h-12 w-12 text-primary/40 group-hover:scale-110 transition-transform" />
+            </div>
+            {/* Status Badge Overlay */}
+            <div className="absolute top-2 right-2">
+              {getStatusBadge(property.occupancy_end_date)}
+            </div>
+          </div>
+
+          {/* Content Section */}
+          <div className="flex-1 p-3">
+            {/* Header */}
+            <div className="mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5 text-foreground line-clamp-1">
+                    {property.title}
+                  </h3>
+                  <div className="flex items-center text-xs text-muted-foreground mb-0.5">
+                    <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="line-clamp-1">{property.location}</span>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono mt-1">
+                    {property.property_code}
+                  </Badge>
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={onExtend}
+                    disabled={!property.can_extend_occupancy}
+                    className="h-7 px-2"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={onHistory}
+                    className="h-7 px-2"
+                  >
+                    <History className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={onCancel}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-2.5">
+              {/* Left Column: Tenant & Dates */}
+              <div className="flex-1 space-y-2">
+                {/* Tenant Info */}
+                <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                  <div className="flex items-center gap-2 text-xs mb-1">
+                    <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <span className="font-medium">{property.profiles?.full_name || 'Unknown'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="h-3 w-3 flex-shrink-0" />
+                    <span>{property.profiles?.email}</span>
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Start Date</div>
+                    <div className="text-xs font-medium">{formatDate(property.occupancy_start_date)}</div>
+                  </div>
+                  <div className="bg-muted/40 rounded-lg p-2 border border-muted/60">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">End Date</div>
+                    <div className="text-xs font-medium">{formatDate(property.occupancy_end_date)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Months Paid */}
+              <div className="lg:w-48 space-y-2 flex-shrink-0">
+                <div className="bg-primary/5 rounded-lg p-2 border border-primary/10">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 text-primary" />
+                      <span className="text-[10px] text-muted-foreground font-medium">Months Paid</span>
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold text-primary">{property.paid_months} months</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
