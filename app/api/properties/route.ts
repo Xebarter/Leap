@@ -133,6 +133,9 @@ function extractUniqueUnitTypes(floorConfig: any): UniqueUnitType[] {
         unitType.petPolicy = details.petPolicy;
         unitType.utilities = details.utilities || [];
         unitType.availableFrom = details.availableFrom;
+        
+        // Property details (rooms/spaces with images)
+        unitType.propertyDetails = details.propertyDetails || [];
       }
     }
   }
@@ -496,23 +499,24 @@ export async function POST(request: Request) {
           .delete()
           .eq('block_id', blockId);
         
-        // Delete existing property images for existing properties
+        // Delete existing property images and details for existing properties (will be recreated)
         for (const propId of (body.existing_property_ids || [])) {
           await supabaseAdmin
             .from('property_images')
             .delete()
             .eq('property_id', propId);
-        }
-        
-        // Delete existing properties (will be recreated)
-        for (const propId of (body.existing_property_ids || [])) {
+          
+          // Delete property details (CASCADE will handle property_detail_images)
           await supabaseAdmin
-            .from('properties')
+            .from('property_details')
             .delete()
-            .eq('id', propId);
+            .eq('property_id', propId);
         }
         
-        console.log('Cleared existing properties and units for block:', blockId);
+        // NOTE: We do NOT delete the properties themselves, we'll update them below
+        // This preserves the property IDs so links don't break
+        
+        console.log('Cleared units and images for block:', blockId);
       } else if (add_to_existing_block && existing_block_id) {
         blockId = existing_block_id;
         await supabaseAdmin
@@ -542,10 +546,18 @@ export async function POST(request: Request) {
       console.log('Block created/updated:', blockId);
 
       const createdProperties: any[] = [];
+      
+      // In edit mode, map existing property IDs to unit types
+      // We'll try to match them by order (first property -> first unit type, etc.)
+      const existingPropertyIds = isEditingApartment ? (body.existing_property_ids || []) : [];
+      let propertyIndex = 0;
 
-      // Create a property for each unique unit type
+      // Create or update a property for each unique unit type
       for (const unitType of uniqueUnitTypes) {
-        console.log(`Creating property for unit type: ${unitType.type}`);
+        const isUpdating = isEditingApartment && propertyIndex < existingPropertyIds.length;
+        const existingPropertyId = isUpdating ? existingPropertyIds[propertyIndex] : null;
+        
+        console.log(`${isUpdating ? 'Updating' : 'Creating'} property for unit type: ${unitType.type}`);
 
         // Create property title
         const propertyTitle = unitType.customTitle || `${buildingNameToUse} - ${unitType.label}`;
@@ -587,20 +599,43 @@ export async function POST(request: Request) {
 
         console.log('Property data for', unitType.type, ':', propertyData);
 
-        // Insert the property
-        const { data: newProperty, error: propertyError } = await supabaseAdmin
-          .from('properties')
-          .insert(propertyData)
-          .select()
-          .single();
+        let propertyResult;
+        
+        if (isUpdating && existingPropertyId) {
+          // Update existing property
+          const { data: updatedProperty, error: propertyError } = await supabaseAdmin
+            .from('properties')
+            .update(propertyData)
+            .eq('id', existingPropertyId)
+            .select()
+            .single();
 
-        if (propertyError) {
-          console.error(`Error creating property for ${unitType.type}:`, propertyError);
-          continue; // Skip to next unit type but don't fail entirely
+          if (propertyError) {
+            console.error(`Error updating property for ${unitType.type}:`, propertyError);
+            continue; // Skip to next unit type but don't fail entirely
+          }
+
+          console.log(`Property updated for ${unitType.type}:`, updatedProperty.id);
+          propertyResult = updatedProperty;
+        } else {
+          // Insert new property
+          const { data: newProperty, error: propertyError } = await supabaseAdmin
+            .from('properties')
+            .insert(propertyData)
+            .select()
+            .single();
+
+          if (propertyError) {
+            console.error(`Error creating property for ${unitType.type}:`, propertyError);
+            continue; // Skip to next unit type but don't fail entirely
+          }
+
+          console.log(`Property created for ${unitType.type}:`, newProperty.id);
+          propertyResult = newProperty;
         }
-
-        console.log(`Property created for ${unitType.type}:`, newProperty.id);
-        createdProperties.push(newProperty);
+        
+        createdProperties.push(propertyResult);
+        propertyIndex++;
 
         // Create units for this property
         let unitCounter = 1;
@@ -612,7 +647,7 @@ export async function POST(request: Request) {
             const { error: unitError } = await supabaseAdmin
               .from('property_units')
               .insert({
-                property_id: newProperty.id,
+                property_id: propertyResult.id,
                 block_id: blockId,
                 floor_number: floorInfo.floor,
                 unit_number: unitNumber,
@@ -631,36 +666,110 @@ export async function POST(request: Request) {
 
         // Store images for this property
         if (unitType.images && unitType.images.length > 0) {
+          console.log(`Inserting ${unitType.images.length} images for property ${propertyResult.id}`);
           for (const image of unitType.images) {
-            await supabaseAdmin
+            const { error: imageError } = await supabaseAdmin
               .from('property_images')
               .insert({
-                property_id: newProperty.id,
+                property_id: propertyResult.id,
                 image_url: image.url,
                 area: image.category || 'Interior',
                 is_primary: image.isPrimary,
                 display_order: image.displayOrder
               });
+            
+            if (imageError) {
+              console.error(`Error inserting image for property ${propertyResult.id}:`, imageError);
+            } else {
+              console.log(`✓ Inserted image: ${image.url.substring(0, 50)}... (${image.category})`);
+            }
           }
         } else if (propertyImageUrl) {
+          console.log(`Using fallback single image for property ${propertyResult.id}`);
           // Fallback for single image
-          await supabaseAdmin
+          const { error: imageError } = await supabaseAdmin
             .from('property_images')
             .insert({
-              property_id: newProperty.id,
+              property_id: propertyResult.id,
               image_url: propertyImageUrl,
               area: 'Interior',
               is_primary: true,
               display_order: 0
             });
+          
+          if (imageError) {
+            console.error(`Error inserting fallback image:`, imageError);
+          }
+        } else {
+          console.log(`No images to insert for property ${propertyResult.id} (unit type: ${unitType.type})`);
+        }
+
+        // Store property details (rooms/spaces) with their images
+        if (unitType.propertyDetails && unitType.propertyDetails.length > 0) {
+          console.log(`Inserting ${unitType.propertyDetails.length} property details for property ${propertyResult.id}`);
+          for (const detail of unitType.propertyDetails) {
+            // Insert the property detail
+            const { data: detailResult, error: detailError } = await supabaseAdmin
+              .from('property_details')
+              .insert({
+                property_id: propertyResult.id,
+                detail_type: detail.type,
+                detail_name: detail.name,
+                description: detail.description || null
+              })
+              .select()
+              .single();
+            
+            if (detailError) {
+              console.error(`Error inserting property detail for property ${propertyResult.id}:`, detailError);
+              continue;
+            }
+            
+            console.log(`✓ Inserted property detail: ${detail.name} (${detail.type})`);
+            
+            // Insert images for this detail
+            if (detail.images && detail.images.length > 0) {
+              console.log(`  Inserting ${detail.images.length} images for detail ${detailResult.id}`);
+              for (let i = 0; i < detail.images.length; i++) {
+                const image = detail.images[i];
+                const { error: detailImageError } = await supabaseAdmin
+                  .from('property_detail_images')
+                  .insert({
+                    property_detail_id: detailResult.id,
+                    image_url: image.url,
+                    display_order: i
+                  });
+                
+                if (detailImageError) {
+                  console.error(`  Error inserting detail image:`, detailImageError);
+                } else {
+                  console.log(`  ✓ Inserted detail image: ${image.url.substring(0, 50)}...`);
+                }
+              }
+            }
+          }
         }
       }
 
-      console.log('=== Apartment creation complete! Created', createdProperties.length, 'properties ===');
+      // If we're editing and there are leftover properties (more existing than current unit types), delete them
+      if (isEditingApartment && propertyIndex < existingPropertyIds.length) {
+        console.log(`Deleting ${existingPropertyIds.length - propertyIndex} leftover properties`);
+        for (let i = propertyIndex; i < existingPropertyIds.length; i++) {
+          const propId = existingPropertyIds[i];
+          await supabaseAdmin
+            .from('properties')
+            .delete()
+            .eq('id', propId);
+          console.log(`Deleted leftover property: ${propId}`);
+        }
+      }
+
+      const actionVerb = isEditingApartment ? 'Updated' : 'Created';
+      console.log(`=== Apartment ${isEditingApartment ? 'update' : 'creation'} complete! ${actionVerb}`, createdProperties.length, 'properties ===');
 
       return NextResponse.json({
         success: true,
-        message: `Created ${createdProperties.length} property listings for apartment building`,
+        message: `${actionVerb} ${createdProperties.length} property listings for apartment building`,
         properties: createdProperties,
         block_id: blockId
       });
@@ -726,6 +835,10 @@ export async function POST(request: Request) {
     // Create or update property
     let propertyResult;
     if (editingPropertyId) {
+      console.log('=== Updating property ===');
+      console.log('Property ID:', editingPropertyId);
+      console.log('Property data:', propertyData);
+      
       const { data, error } = await supabaseAdmin
         .from("properties")
         .update(propertyData)
@@ -735,10 +848,14 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Error updating property:', error);
-        throw error;
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        throw new Error(`Failed to update property: ${error.message || error.hint || JSON.stringify(error)}`);
       }
       propertyResult = data;
     } else {
+      console.log('=== Creating new property ===');
+      console.log('Property data:', propertyData);
+      
       const { data, error } = await supabaseAdmin
         .from("properties")
         .insert(propertyData)
@@ -747,7 +864,8 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Error inserting property:', error);
-        throw error;
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        throw new Error(`Failed to create property: ${error.message || error.hint || JSON.stringify(error)}`);
       }
       propertyResult = data;
     }
@@ -998,7 +1116,83 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Delete the property and related records
+    // Fetch the property to get the main image URL
+    const { data: property, error: propertyFetchError } = await supabaseAdmin
+      .from('properties')
+      .select('image_url')
+      .eq('id', id)
+      .single();
+
+    if (propertyFetchError) {
+      console.error('Error fetching property:', propertyFetchError);
+      // Continue with deletion
+    }
+
+    // Fetch all property images to get storage paths
+    const { data: propertyImages, error: fetchError } = await supabaseAdmin
+      .from('property_images')
+      .select('image_url, image_storage_path')
+      .eq('property_id', id);
+
+    if (fetchError) {
+      console.error('Error fetching property images:', fetchError);
+      // Continue with deletion even if we can't fetch images
+    }
+
+    // Collect all storage paths to delete
+    const storagePathsToDelete: string[] = [];
+    
+    // Helper function to extract storage path from URL
+    const extractStoragePath = (url: string): string | null => {
+      // URL format: https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
+      const urlMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
+      if (urlMatch && urlMatch[1]) {
+        return decodeURIComponent(urlMatch[1]);
+      }
+      return null;
+    };
+
+    // Add main property image
+    if (property?.image_url) {
+      const path = extractStoragePath(property.image_url);
+      if (path) {
+        storagePathsToDelete.push(path);
+      }
+    }
+
+    // Add all property_images
+    if (propertyImages && propertyImages.length > 0) {
+      for (const image of propertyImages) {
+        // If we have the storage path, use it
+        if (image.image_storage_path) {
+          storagePathsToDelete.push(image.image_storage_path);
+        } else if (image.image_url) {
+          const path = extractStoragePath(image.image_url);
+          if (path) {
+            storagePathsToDelete.push(path);
+          }
+        }
+      }
+    }
+
+    // Delete files from storage if we have paths
+    if (storagePathsToDelete.length > 0) {
+      // Remove duplicates
+      const uniquePaths = [...new Set(storagePathsToDelete)];
+      
+      const { error: storageError } = await supabaseAdmin.storage
+        .from('property-images')
+        .remove(uniquePaths);
+
+      if (storageError) {
+        console.error('Error deleting property images from storage:', storageError);
+        // Continue with database deletion even if storage deletion fails
+      } else {
+        console.log(`Deleted ${uniquePaths.length} images from storage for property ${id}`);
+      }
+    }
+
+    // Delete the property from database (CASCADE will handle property_images, property_units, etc.)
     const { error } = await supabaseAdmin
       .from("properties")
       .delete()

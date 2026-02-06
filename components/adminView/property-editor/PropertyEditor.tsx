@@ -162,6 +162,8 @@ export function PropertyEditor({ propertyId, initialData, blocks = [], isNew = f
         is_featured: formData.is_featured,
         editingPropertyId: isNew ? null : propertyId,
       }
+      
+      console.log('Saving property with data:', propertyData)
 
       const response = await fetch('/api/properties', {
         method: 'POST',
@@ -172,7 +174,10 @@ export function PropertyEditor({ propertyId, initialData, blocks = [], isNew = f
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Failed to save property')
+        console.error('API Error Response:', result)
+        console.error('Status:', response.status, response.statusText)
+        const errorMessage = result?.error || result?.message || 'Failed to save property'
+        throw new Error(errorMessage)
       }
 
       if (isNew) {

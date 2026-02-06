@@ -142,13 +142,13 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
   return (
     <main className="bg-background">
       {/* Hero */}
-      <section className="py-12 bg-gradient-to-br from-primary/10 to-background">
+      <section className="py-4 sm:py-6 bg-gradient-to-br from-primary/10 to-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6 mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
+          <div className="space-y-4 mb-6">
+            <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">
               Find Your Perfect Home
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
+            <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
               Browse from our collection of verified, quality properties
             </p>
           </div>
@@ -156,10 +156,10 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
       </section>
 
       {/* Properties Section with Filters */}
-      <section className="py-12">
+      <section className="py-6 sm:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Search Bar */}
-          <div className="mb-8">
+          <div className="mb-6">
             <HeroSearchBar 
               onSearch={handleFilterChange}
               showSearchButton={false}
@@ -178,74 +178,72 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
               {filteredAndSorted.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6">
                   {filteredAndSorted.map((property) => (
-                    <Card key={property.id} className="border-none shadow-none bg-muted/50 overflow-hidden hover:shadow-lg transition-shadow">
-                      {/* Image */}
-                      <div className="h-40 sm:h-48 relative group overflow-hidden">
-                        <Link href={`/properties/${property.id}`} className="block w-full h-full">
+                    <Link key={property.id} href={`/properties/${property.id}`} className="group block">
+                      <Card className="border-none shadow-none bg-muted/50 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
+                        {/* Image */}
+                        <div className="h-40 sm:h-48 relative overflow-hidden">
                           <Image
                             src={property.image_url}
                             alt={property.title}
                             fill
-                            className="object-cover"
+                            className="object-cover transition-transform group-hover:scale-105"
                           />
-                        </Link>
-                        <div 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            // Handle save/favorite action here
-                          }}
-                          className="absolute top-4 right-4 bg-background/80 backdrop-blur rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
-                        >
-                          <Heart className="w-5 h-5" />
+                          <div 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Handle save/favorite action here
+                            }}
+                            className="absolute top-4 right-4 bg-background/80 backdrop-blur rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer hover:bg-background"
+                          >
+                            <Heart className="w-5 h-5" />
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Content */}
-                      <CardHeader className="space-y-2 pb-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <CardTitle className="line-clamp-1 text-base sm:text-lg">{property.title}</CardTitle>
-                            <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
-                              <MapPin className="w-3 h-3" />
-                              <span className="line-clamp-1">{property.location}</span>
+                        {/* Content */}
+                        <CardHeader className="space-y-2 pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <CardTitle className="line-clamp-1 text-base sm:text-lg">{property.title}</CardTitle>
+                              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
+                                <MapPin className="w-3 h-3" />
+                                <span className="line-clamp-1">{property.location}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </CardHeader>
+                        </CardHeader>
 
-                      <CardContent className="space-y-3 pt-0">
-                        {/* Price */}
-                        <div className="text-xl sm:text-2xl font-bold text-primary">
-                          UGX {property.price}
-                          <span className="text-xs sm:text-sm text-muted-foreground font-normal">/month</span>
-                        </div>
+                        <CardContent className="space-y-3 pt-0">
+                          {/* Price */}
+                          <div className="text-xl sm:text-2xl font-bold text-primary">
+                            UGX {property.price}
+                            <span className="text-xs sm:text-sm text-muted-foreground font-normal">/month</span>
+                          </div>
 
-                        {/* Features */}
-                        <div className="flex gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Bed className="w-4 h-4" />
-                            {property.bedrooms} Bed
+                          {/* Features */}
+                          <div className="flex gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Bed className="w-4 h-4" />
+                              {property.bedrooms} Bed
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Bath className="w-4 h-4" />
+                              {property.bathrooms} Bath
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Square className="w-4 h-4" />
+                              {property.area} m²
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Bath className="w-4 h-4" />
-                            {property.bathrooms} Bath
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Square className="w-4 h-4" />
-                            {property.area} m²
-                          </div>
-                        </div>
 
-                        {/* CTA */}
-                        <Link href={`/properties/${property.id}`} className="block w-full">
-                          <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer flex items-center justify-center gap-2">
+                          {/* CTA - Now just visual, entire card is clickable */}
+                          <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background group-hover:bg-accent group-hover:text-accent-foreground transition-colors flex items-center justify-center gap-2">
                             View Details
                             <ArrowRight className="w-4 h-4" />
                           </div>
-                        </Link>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               ) : (

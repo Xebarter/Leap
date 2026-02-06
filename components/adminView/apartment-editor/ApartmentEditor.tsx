@@ -16,9 +16,9 @@ import {
 } from './types'
 import {
   BuildingInfoSection,
-  FloorsConfigSection,
-  UnitTypesSection,
-  MediaSection,
+  SimplifiedFloorsConfigSection,
+  ImprovedUnitTypesSection,
+  SimplifiedMediaSection,
   ReviewSection
 } from './sections'
 import { FloorUnitTypeConfiguration } from '../floor-unit-type-configurator'
@@ -141,15 +141,20 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
         const firstProperty = data.properties[0]
         const blockData = await fetchApartmentBlockData(firstProperty.id)
         
+        // Collect all property IDs associated with this block
+        const existingPropertyIds = data.properties.map((p: any) => p.id)
+        
         if (blockData) {
           setData({
             blockId: blockData.blockId,
+            existingPropertyIds: existingPropertyIds,
             buildingName: blockData.buildingName,
             location: blockData.location,
             totalFloors: blockData.totalFloors,
             minimumInitialMonths: blockData.minimumInitialMonths,
             floorConfig: blockData.floorConfig.floors,
             unitTypeDetails: blockData.floorConfig.unitTypeDetails || [],
+            googleMapsEmbedUrl: blockData.googleMapsEmbedUrl || '',
           })
         }
       }
@@ -159,6 +164,80 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Helper function to upload detail images
+  const uploadDetailImages = async (unitTypeDetails: any[]) => {
+    const updatedUnitTypeDetails = []
+    
+    for (const unitType of unitTypeDetails) {
+      const updatedUnitType = { ...unitType }
+      
+      // Check if there are property details with images to upload
+      if (unitType.propertyDetails && unitType.propertyDetails.length > 0) {
+        const updatedPropertyDetails = []
+        
+        for (const detail of unitType.propertyDetails) {
+          const updatedDetail = { ...detail }
+          
+          // Upload any images that have a file object (blob URLs)
+          if (detail.images && detail.images.length > 0) {
+            const uploadedImages = []
+            
+            for (const img of detail.images) {
+              if (img.file) {
+                // This is a new image that needs to be uploaded
+                try {
+                  const timestamp = Date.now()
+                  const fileName = img.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+                  const filePath = `property-details/${timestamp}_${fileName}`
+                  
+                  const formData = new FormData()
+                  formData.append('file', img.file)
+                  formData.append('filePath', filePath)
+                  formData.append('bucket', 'property-images')
+                  
+                  const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                  })
+                  
+                  if (!response.ok) {
+                    console.error('Failed to upload detail image:', img.file.name)
+                    continue
+                  }
+                  
+                  const result = await response.json()
+                  uploadedImages.push({
+                    id: img.id,
+                    url: result.url
+                  })
+                  console.log(`✓ Uploaded detail image: ${img.file.name}`)
+                } catch (error) {
+                  console.error('Error uploading detail image:', error)
+                }
+              } else {
+                // Already uploaded image, keep as is
+                uploadedImages.push({
+                  id: img.id,
+                  url: img.url
+                })
+              }
+            }
+            
+            updatedDetail.images = uploadedImages
+          }
+          
+          updatedPropertyDetails.push(updatedDetail)
+        }
+        
+        updatedUnitType.propertyDetails = updatedPropertyDetails
+      }
+      
+      updatedUnitTypeDetails.push(updatedUnitType)
+    }
+    
+    return updatedUnitTypeDetails
   }
 
   // Save apartment
@@ -180,11 +259,15 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
     setSaveStatus({ status: 'saving' })
 
     try {
+      // Upload detail images first
+      toast.info('Uploading images...')
+      const uploadedUnitTypeDetails = await uploadDetailImages(formData.unitTypeDetails)
+      
       // Build the floor configuration object
       const floorUnitConfig: FloorUnitTypeConfiguration = {
         totalFloors: formData.totalFloors,
         floors: formData.floorConfig,
-        unitTypeDetails: formData.unitTypeDetails,
+        unitTypeDetails: uploadedUnitTypeDetails,
       }
 
       const payload = {
@@ -206,6 +289,7 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
         video_url: formData.buildingVideoUrl,
         // Edit mode fields
         block_id: formData.blockId,
+        existing_property_ids: formData.existingPropertyIds || [],
         is_edit_mode: !isNew && !!formData.blockId,
       }
 
@@ -296,34 +380,29 @@ export function ApartmentEditor({ blockId, initialData, isNew = false, buildingT
         )
       case 'floors':
         return (
-          <FloorsConfigSection
+          <SimplifiedFloorsConfigSection
             formData={formData}
             errors={errors}
             onUpdateFloorConfig={updateFloorConfig}
-            onUpdateUnitTypeDetails={updateUnitTypeDetails}
-            buildingName={formData.buildingName}
-            buildingLocation={formData.location}
-            blockId={formData.blockId}
             buildingType={buildingType}
           />
         )
       case 'unit-types':
         return (
-          <UnitTypesSection
+          <ImprovedUnitTypesSection
             formData={formData}
-            uniqueUnitTypes={uniqueUnitTypes}
-            onUpdateUnitTypeDetails={updateSingleUnitTypeDetails}
-            buildingName={formData.buildingName}
+            errors={errors}
+            onUpdateUnitTypeDetails={updateUnitTypeDetails}
+            onUpdateFloorConfig={updateFloorConfig}
             buildingType={buildingType}
           />
         )
       case 'media':
         return (
-          <MediaSection
+          <SimplifiedMediaSection
             formData={formData}
-            uniqueUnitTypes={uniqueUnitTypes}
+            errors={errors}
             onUpdate={updateField}
-            onUpdateUnitTypeDetails={updateSingleUnitTypeDetails}
           />
         )
       case 'review':

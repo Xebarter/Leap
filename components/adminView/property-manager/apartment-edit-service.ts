@@ -14,6 +14,7 @@ export interface ApartmentBlockData {
   floorConfig: FloorUnitTypeConfiguration
   allProperties: any[] // All properties in this block
   existingPropertyIds: string[] // IDs of all properties in this block
+  googleMapsEmbedUrl?: string | null // Google Maps embed URL for the building location
 }
 
 /**
@@ -82,6 +83,9 @@ export async function fetchApartmentBlockData(propertyId: string): Promise<Apart
   // 5. Extract building name from property titles
   const buildingName = extractBuildingName(allProperties)
   
+  // 6. Get Google Maps URL from the first property (all properties in block share same location)
+  const googleMapsEmbedUrl = property.google_maps_embed_url || null
+  
   return {
     blockId: property.block_id,
     blockName: property.property_blocks.name,
@@ -91,7 +95,8 @@ export async function fetchApartmentBlockData(propertyId: string): Promise<Apart
     minimumInitialMonths: property.minimum_initial_months || 1,
     floorConfig,
     allProperties,
-    existingPropertyIds: allProperties.map(p => p.id)
+    existingPropertyIds: allProperties.map(p => p.id),
+    googleMapsEmbedUrl
   }
 }
 
@@ -193,7 +198,7 @@ async function reconstructFloorConfig(
     const images = (propertyImages || []).map((img, idx) => ({
       id: img.id,
       url: img.image_url,
-      category: img.category || 'general',
+      category: img.area || 'general',
       isPrimary: img.is_primary || idx === 0,
       displayOrder: img.display_order || idx
     }))

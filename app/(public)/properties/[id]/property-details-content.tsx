@@ -56,7 +56,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { PropertyVideoPlayer } from '@/components/publicView/property-video-player'
 import { BuildingBlockVisualization, Unit } from '@/components/publicView/building-block-visualization'
 import { PropertyData, PropertyDetail, PropertyImage } from '@/lib/properties'
@@ -250,12 +250,18 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
 
   // Collect all images from property_images table (from apartment wizard)
   const propertyImages = React.useMemo(() => {
-    if (!property.property_images || property.property_images.length === 0) return []
-    return property.property_images.map(img => ({
+    if (!property.property_images || property.property_images.length === 0) {
+      console.log('No property_images found')
+      return []
+    }
+    console.log('property_images from database:', property.property_images)
+    const images = property.property_images.map(img => ({
       url: img.image_url,
       label: img.area,
       isPrimary: img.is_primary
     }))
+    console.log('Processed propertyImages:', images)
+    return images
   }, [property.property_images])
 
   // Collect all images from property details for gallery (legacy/manual details)
@@ -291,6 +297,9 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
         images.push(img)
       }
     })
+    
+    console.log('Final allImages array:', images)
+    console.log('Total images:', images.length)
     
     return images
   }, [property.image_url, propertyImages, allDetailImages])
@@ -619,22 +628,22 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                 </div>
               )}
 
-              {/* Property Images Gallery (from apartment wizard) */}
-              {propertyImages.length > 0 && (
+              {/* Property Images Gallery (all images including detail images) */}
+              {allImages.length > 0 && (
                 <div>
                   <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                     <ImageIcon className="w-6 h-6 text-primary" />
                     Photo Gallery
                   </h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {propertyImages.map((image, index) => (
+                    {allImages.map((image, index) => (
                       <div
                         key={index}
                         className={`relative rounded-xl overflow-hidden cursor-pointer group shadow-lg ${
-                          image.isPrimary ? 'col-span-2 row-span-2 h-[300px] md:h-[400px]' : 'h-[150px] md:h-[200px]'
+                          index === 0 ? 'col-span-2 row-span-2 h-[300px] md:h-[400px]' : 'h-[150px] md:h-[200px]'
                         }`}
                         onClick={() => {
-                          const imageUrls = propertyImages.map(img => img.url)
+                          const imageUrls = allImages.map(img => img.url)
                           openLightbox(imageUrls, index)
                         }}
                       >
@@ -643,7 +652,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                           alt={`${property.title} - ${image.label}`}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          sizes={image.isPrimary ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 50vw, 33vw"}
+                          sizes={index === 0 ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 50vw, 33vw"}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                         <div className="absolute bottom-2 left-2">
@@ -854,22 +863,37 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                         <div className="p-4 rounded-full bg-primary/10">
                           <MapPin className="w-8 h-8 text-primary" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                           <h3 className="text-lg font-semibold">Property Location</h3>
                           <p className="text-sm text-muted-foreground">{property.location}</p>
+                          
+                          {property.google_maps_embed_url && (
+                            <div className="space-y-3">
+                              <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+                                <iframe
+                                  src={property.google_maps_embed_url}
+                                  width="100%"
+                                  height="100%"
+                                  style={{ border: 0 }}
+                                  allowFullScreen
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer-when-downgrade"
+                                  title="Property Location Map"
+                                />
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleOpenInMaps}
+                                className="gap-2"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                Open in Google Maps
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        {property.google_maps_embed_url && (
-                          <Button
-                            variant="default"
-                            size="lg"
-                            onClick={handleOpenInMaps}
-                            className="gap-2"
-                          >
-                            <MapPin className="w-4 h-4" />
-                            View on Google Maps
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1198,17 +1222,27 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                   : property.property_blocks?.total_floors || property.total_floors || 1
               }
               units={
-                property.property_units?.map(unit => ({
-                  id: unit.id,
-                  unitNumber: unit.unit_number,
-                  floor: unit.floor_number,
-                  type: unit.unit_type || `${unit.bedrooms}BR`,
-                  isAvailable: unit.is_available,
-                  price: unit.price_ugx,
-                  bedrooms: unit.bedrooms,
-                  bathrooms: unit.bathrooms,
-                  property_id: id
-                })) || []
+                // Get ALL units from the property block (includes all unit types)
+                (() => {
+                  const blockUnits = Array.isArray(property.property_blocks)
+                    ? property.property_blocks[0]?.property_units
+                    : property.property_blocks?.property_units
+                  
+                  // Fall back to property_units if no block units found
+                  const units = blockUnits || property.property_units || []
+                  
+                  return units.map(unit => ({
+                    id: unit.id,
+                    unitNumber: unit.unit_number,
+                    floor: unit.floor_number,
+                    type: unit.unit_type || `${unit.bedrooms}BR`,
+                    isAvailable: unit.is_available,
+                    price: unit.price_ugx,
+                    bedrooms: unit.bedrooms,
+                    bathrooms: unit.bathrooms,
+                    property_id: unit.property_id || id
+                  }))
+                })() || []
               }
               floorUnitConfig={property.floor_unit_config}
               currentPropertyId={id}
@@ -1229,6 +1263,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
             if (e.key === 'Escape') setLightboxOpen(false)
           }}
         >
+          <DialogTitle className="sr-only">Property Image Gallery</DialogTitle>
           <div className="relative w-full h-[80vh]">
             {/* Close Button */}
             <Button

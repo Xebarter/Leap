@@ -2,27 +2,115 @@
 Console Error
 
 ## Error Message
-`DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
 
-If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
 
-For more information, see https://radix-ui.com/primitives/docs/components/dialog
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <div data-slot="card" className="text-card-...">
+      <div>
+      <CardContent className="p-5 space-y-4">
+        <div data-slot="card-content" className="p-5 space-y-4">
+          <div className="space-y-2.5">
+            <_c>
+            <div className="grid grid-...">
+              ...
+                <Dialog data-slot="dialog" open={false} onOpenChange={function bound dispatchSetState}>
+                  <DialogProvider scope={undefined} triggerRef={{current:null}} contentRef={{current:null}} ...>
+                    <DialogTrigger asChild={true}>
+                      <DialogTrigger data-slot="dialog-tri..." asChild={true}>
+                        <Primitive.button type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                          <Slot type="button" aria-haspopup="dialog" aria-expanded={false} aria-controls="radix-_R_p..." ...>
+                            <SlotClone type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                              <_c variant="outline" className="w-full h-2..." type="button" aria-haspopup="dialog" ...>
+                                <button
+                                  ref={function}
+                                  data-slot="dialog-trigger"
+                                  type="button"
+                                  className={"inline-flex items-center justify-center whitespace-nowrap rounded-md te..."}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={false}
++                                 aria-controls="radix-_R_phjatpesnekndlb_"
+-                                 aria-controls="radix-_R_366eatpesnekndlb_"
+                                  data-state="closed"
+                                  onClick={function handleEvent}
+                                >
+                    ...
+              ...
+                <Dialog data-slot="dialog" open={false} onOpenChange={function bound dispatchSetState}>
+                  <DialogProvider scope={undefined} triggerRef={{current:null}} contentRef={{current:null}} ...>
+                    <DialogTrigger asChild={true}>
+                      <DialogTrigger data-slot="dialog-tri..." asChild={true}>
+                        <Primitive.button type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                          <Slot type="button" aria-haspopup="dialog" aria-expanded={false} aria-controls="radix-_R_1..." ...>
+                            <SlotClone type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                              <_c variant="outline" className="w-full h-2..." type="button" aria-haspopup="dialog" ...>
+                                <button
+                                  ref={function}
+                                  data-slot="dialog-trigger"
+                                  type="button"
+                                  className={"inline-flex items-center justify-center whitespace-nowrap rounded-md te..."}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={false}
++                                 aria-controls="radix-_R_19hjatpesnekndlb_"
+-                                 aria-controls="radix-_R_566eatpesnekndlb_"
+                                  data-state="closed"
+                                  onClick={function handleEvent}
+                                >
+                    ...
+          <div className="pt-2 space...">
+            <div>
+            <ReservePropertyDialog propertyId="c98f06dc-1..." propertyTitle="Valera Apa..." propertyLocation="Lubowa" ...>
+              <Dialog open={false} onOpenChange={function bound dispatchSetState}>
+                <Dialog data-slot="dialog" open={false} onOpenChange={function bound dispatchSetState}>
+                  <DialogProvider scope={undefined} triggerRef={{current:null}} contentRef={{current:null}} ...>
+                    <DialogTrigger asChild={true}>
+                      <DialogTrigger data-slot="dialog-tri..." asChild={true}>
+                        <Primitive.button type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                          <Slot type="button" aria-haspopup="dialog" aria-expanded={false} aria-controls="radix-_R_a..." ...>
+                            <SlotClone type="button" aria-haspopup="dialog" aria-expanded={false} ...>
+                              <_c className="w-full gap..." size="lg" type="button" aria-haspopup="dialog" ...>
+                                <button
+                                  ref={function}
+                                  data-slot="dialog-trigger"
+                                  type="button"
+                                  className={"inline-flex items-center justify-center whitespace-nowrap disabled:poin..."}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={false}
++                                 aria-controls="radix-_R_ahjatpesnekndlb_"
+-                                 aria-controls="radix-_R_1a6eatpesnekndlb_"
+                                  data-state="closed"
+                                  onClick={function handleEvent}
+                                >
+                    ...
+            ...
+          ...
 
 
-    at DialogContent (components/ui/dialog.tsx:60:7)
-    at DialogPortal (components/ui/dialog.tsx:24:10)
-    at DialogContent (components/ui/dialog.tsx:58:5)
-    at ApplyNowDialog (components/publicView/apply-now-dialog.tsx:100:7)
+
+    at button (<anonymous>:null:null)
+    at _c (components/ui/button.tsx:51:5)
+    at PropertyDetailsContent (app/(public)/properties/[id]/property-details-content.tsx:987:29)
+    at DialogTrigger (components/ui/dialog.tsx:18:10)
+    at ScheduleVisitDialog (components/publicView/schedule-visit-dialog.tsx:203:7)
     at PropertyDetailsContent (app/(public)/properties/[id]/property-details-content.tsx:982:25)
     at PropertyDetailsPage (app\(public)\properties\[id]\page.tsx:18:10)
 
 ## Code Frame
-  58 |     <DialogPortal data-slot="dialog-portal">
-  59 |       <DialogOverlay />
-> 60 |       <DialogPrimitive.Content
-     |       ^
-  61 |         data-slot="dialog-content"
-  62 |         className={cn(
-  63 |           'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+  49 |
+  50 |   return (
+> 51 |     <Comp
+     |     ^
+  52 |       ref={ref}
+  53 |       data-slot="button"
+  54 |       {...(!asChild && { type })}
 
 Next.js version: 16.0.10 (Turbopack)

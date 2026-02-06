@@ -5,6 +5,7 @@ import { FloorUnitTypeConfiguration, UnitTypeDetails, FloorConfig } from '../flo
 export interface ApartmentFormData {
   // Block/Building identification
   blockId?: string
+  existingPropertyIds?: string[]  // Property IDs for edit mode
   
   // Building Information
   buildingName: string

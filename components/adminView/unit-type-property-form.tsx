@@ -378,7 +378,7 @@ export function UnitTypePropertyForm({
                 <p className="text-xs text-muted-foreground mb-3">
                   Add rooms and areas to highlight in this listing
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {detailTemplates.map((template, idx) => {
                     const isAdded = details.propertyDetails?.some(
                       d => d.type === template.type && d.name === template.name
@@ -410,11 +410,15 @@ export function UnitTypePropertyForm({
                             })
                           }
                         }}
-                        className={`justify-start gap-2 h-auto py-2 ${isAdded ? 'bg-primary/10 border-primary' : ''}`}
+                        className={`relative flex items-center justify-between gap-2 h-auto min-h-[3rem] py-2 px-3 ${isAdded ? 'bg-primary/10 border-primary' : ''}`}
                       >
-                        <span className="text-lg">{template.icon}</span>
-                        <span className="text-xs">{template.name}</span>
-                        {isAdded && <Check className="h-3 w-3 ml-auto text-primary" />}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-lg shrink-0 leading-none">{template.icon}</span>
+                          <span className="text-[11px] font-medium leading-tight line-clamp-2 overflow-hidden text-left hyphens-auto" style={{ wordBreak: 'break-word' }}>
+                            {template.name}
+                          </span>
+                        </div>
+                        {isAdded && <Check className="h-4 w-4 shrink-0 text-primary ml-1" />}
                       </Button>
                     )
                   })}

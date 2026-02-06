@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowRight, Search, Star, Shield, CheckCircle2, Clock, Users, Home, FileText, Key } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PropertyCard } from '@/components/publicView/property-card'
+import { FeaturedPropertyCard } from '@/components/publicView/featured-property-card'
 import { HeroSearchBar } from '@/components/publicView/hero-search-bar'
 import { getPublicProperties, getFeaturedProperties } from '@/lib/properties'
 
@@ -72,27 +73,42 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Featured Properties Section - PRIORITY */}
+      {/* Featured Properties Section - PREMIUM SHOWCASE */}
       {featuredProperties.length > 0 ? (
-        <section className="py-6 sm:py-8 bg-muted/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                <h2 className="text-xl sm:text-2xl font-bold">Featured Properties</h2>
+        <section className="py-12 sm:py-16 bg-gradient-to-b from-amber-50/30 via-white to-background relative overflow-hidden">
+          {/* Decorative Background */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-10 right-10 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-10 left-10 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl" />
+          </div>
+
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Section Header */}
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-100 to-amber-50 px-4 py-2 rounded-full mb-4 border border-amber-200/50">
+                <Star className="w-4 h-4 text-amber-600 fill-amber-600" />
+                <span className="text-sm font-semibold text-amber-800 uppercase tracking-wide">Premium Selection</span>
               </div>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 bg-gradient-to-r from-amber-900 via-slate-900 to-slate-800 bg-clip-text text-transparent">
+                Featured Luxury Properties
+              </h2>
+              <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+                Handpicked premium properties offering exceptional quality and value
+              </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
+
+            {/* Featured Properties Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-8">
               {featuredProperties.map((property: any) => (
-                <PropertyCard key={property.id} property={property} />
+                <FeaturedPropertyCard key={property.id} property={property} />
               ))}
             </div>
             
             {/* View All Properties Button */}
-            <div className="flex justify-center pt-2">
-              <Button asChild size="lg" className="gap-2 px-8">
+            <div className="flex justify-center pt-4">
+              <Button asChild size="lg" className="gap-2 px-8 h-12 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 shadow-lg hover:shadow-xl transition-all">
                 <Link href="/properties">
-                  View All Properties
+                  Explore All Properties
                   <ArrowRight className="w-5 h-5" />
                 </Link>
               </Button>
