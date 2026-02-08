@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MapPin, Search } from 'lucide-react'
@@ -10,6 +10,8 @@ interface HeroSearchBarProps {
   onSearch?: (filters: SearchFilters) => void
   showSearchButton?: boolean
   initialValues?: Partial<SearchFilters>
+  enableDynamicSearch?: boolean // Enable real-time search as user types
+  debounceMs?: number // Debounce delay in milliseconds
 }
 
 export interface SearchFilters {
@@ -27,7 +29,9 @@ const EMPTY_INITIAL_VALUES: Partial<SearchFilters> = {}
 export function HeroSearchBar({ 
   onSearch, 
   showSearchButton = true,
-  initialValues
+  initialValues,
+  enableDynamicSearch = true,
+  debounceMs = 300
 }: HeroSearchBarProps) {
   const router = useRouter()
   
@@ -47,17 +51,42 @@ export function HeroSearchBar({
   const onSearchRef = useRef(onSearch)
   onSearchRef.current = onSearch
 
+  // Debounce timer ref
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleFilterChange = useCallback((key: keyof SearchFilters, value: string) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value }
       
-      // If onSearch callback is provided, call it immediately
-      if (onSearchRef.current) {
-        onSearchRef.current(newFilters)
+      // If dynamic search is enabled and onSearch callback is provided
+      if (enableDynamicSearch && onSearchRef.current) {
+        // Clear existing timer
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current)
+        }
+        
+        // For location field, debounce the search to avoid too many updates
+        if (key === 'location') {
+          debounceTimerRef.current = setTimeout(() => {
+            onSearchRef.current?.(newFilters)
+          }, debounceMs)
+        } else {
+          // For other filters (dropdowns), apply immediately
+          onSearchRef.current(newFilters)
+        }
       }
       
       return newFilters
     })
+  }, [enableDynamicSearch, debounceMs])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
   }, [])
 
   const handleSearch = useCallback(() => {

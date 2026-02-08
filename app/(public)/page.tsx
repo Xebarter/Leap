@@ -52,7 +52,7 @@ export default async function HomePage() {
             </div>
 
             {/* Advanced Search Bar with Filters */}
-            <HeroSearchBar showSearchButton={true} />
+            <HeroSearchBar showSearchButton={true} enableDynamicSearch={false} />
             
             <div className="flex items-center justify-between mt-2 px-1">
               <p className="text-xs text-muted-foreground">
@@ -85,12 +85,8 @@ export default async function HomePage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Section Header */}
             <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-100 to-amber-50 px-4 py-2 rounded-full mb-4 border border-amber-200/50">
-                <Star className="w-4 h-4 text-amber-600 fill-amber-600" />
-                <span className="text-sm font-semibold text-amber-800 uppercase tracking-wide">Premium Selection</span>
-              </div>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 bg-gradient-to-r from-amber-900 via-slate-900 to-slate-800 bg-clip-text text-transparent">
-                Featured Luxury Properties
+                Featured Properties
               </h2>
               <p className="text-base text-muted-foreground max-w-2xl mx-auto">
                 Handpicked premium properties offering exceptional quality and value

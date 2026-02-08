@@ -628,47 +628,6 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                 </div>
               )}
 
-              {/* Property Images Gallery (all images including detail images) */}
-              {allImages.length > 0 && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <ImageIcon className="w-6 h-6 text-primary" />
-                    Photo Gallery
-                  </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {allImages.map((image, index) => (
-                      <div
-                        key={index}
-                        className={`relative rounded-xl overflow-hidden cursor-pointer group shadow-lg ${
-                          index === 0 ? 'col-span-2 row-span-2 h-[300px] md:h-[400px]' : 'h-[150px] md:h-[200px]'
-                        }`}
-                        onClick={() => {
-                          const imageUrls = allImages.map(img => img.url)
-                          openLightbox(imageUrls, index)
-                        }}
-                      >
-                        <Image
-                          src={image.url}
-                          alt={`${property.title} - ${image.label}`}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          sizes={index === 0 ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 50vw, 33vw"}
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                        <div className="absolute bottom-2 left-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {image.label}
-                          </Badge>
-                        </div>
-                        <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Maximize2 className="w-3 h-3" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Property Details with Images - Large Prominent Gallery (legacy/manual details) */}
               {property.property_details && property.property_details.length > 0 && (
                 <div>
@@ -859,38 +818,61 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                 {property?.location ? (
                   <div className="space-y-3">
                     <div className="rounded-xl overflow-hidden border bg-muted/50 p-8">
-                      <div className="flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="p-4 rounded-full bg-primary/10">
-                          <MapPin className="w-8 h-8 text-primary" />
+                      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 via-white to-slate-50">
+                        {/* Map Icon Background Decoration */}
+                        <div className="absolute top-0 right-0 w-40 h-40 opacity-5">
+                          <MapPin className="w-full h-full text-blue-600" />
                         </div>
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">Property Location</h3>
-                          <p className="text-sm text-muted-foreground">{property.location}</p>
-                          
+                        
+                        <div className="relative p-6 space-y-4">
+                          {/* Header */}
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-blue-100">
+                                  <MapPin className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-slate-900">Location</h3>
+                              </div>
+                              <p className="text-sm text-slate-600 pl-11">{property.location}</p>
+                            </div>
+                          </div>
+
+                          {/* Map Preview Graphic */}
                           {property.google_maps_embed_url && (
                             <div className="space-y-3">
-                              <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+                              {/* Compact Map Preview */}
+                              <div className="relative w-full h-32 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
                                 <iframe
                                   src={property.google_maps_embed_url}
                                   width="100%"
                                   height="100%"
-                                  style={{ border: 0 }}
-                                  allowFullScreen
+                                  style={{ border: 0, pointerEvents: 'none' }}
                                   loading="lazy"
                                   referrerPolicy="no-referrer-when-downgrade"
-                                  title="Property Location Map"
+                                  title="Property Location Map Preview"
                                 />
+                                {/* Overlay to prevent interaction */}
+                                <div className="absolute inset-0 bg-transparent cursor-pointer" onClick={handleOpenInMaps}></div>
                               </div>
+
+                              {/* CTA Button */}
                               <Button
-                                variant="outline"
-                                size="sm"
+                                variant="default"
+                                size="default"
                                 onClick={handleOpenInMaps}
-                                className="gap-2"
+                                className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
                               >
                                 <MapPin className="w-4 h-4" />
-                                Open in Google Maps
-                                <ExternalLink className="w-3 h-3" />
+                                View in Google Maps
+                                <ExternalLink className="w-4 h-4" />
                               </Button>
+
+                              {/* Trust Indicator */}
+                              <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                <span>Verified location</span>
+                              </div>
                             </div>
                           )}
                         </div>

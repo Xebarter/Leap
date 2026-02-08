@@ -37,9 +37,13 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
   }), []) // Empty deps - only compute once on mount
   
   const [filters, setFilters] = useState<SearchFilters>(initialFiltersFromUrl)
+  const [isFiltering, setIsFiltering] = useState(false)
 
   const handleFilterChange = useCallback((newFilters: SearchFilters) => {
+    setIsFiltering(true)
     setFilters(newFilters)
+    // Reset filtering state after a short delay to show smooth transition
+    setTimeout(() => setIsFiltering(false), 150)
   }, [])
 
   // Transform properties to display format
@@ -163,6 +167,9 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
             <HeroSearchBar 
               onSearch={handleFilterChange}
               showSearchButton={false}
+              enableDynamicSearch={true}
+              debounceMs={300}
+              initialValues={initialFiltersFromUrl}
             />
           </div>
 
@@ -172,11 +179,17 @@ export default function PropertiesPageContent({ initialProperties }: PropertiesP
                 <h2 className="text-xl sm:text-2xl font-bold">
                   Available Properties <span className="text-primary">({filteredAndSorted.length})</span>
                 </h2>
+                {isFiltering && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    Filtering...
+                  </div>
+                )}
               </div>
 
               {/* Properties Grid */}
               {filteredAndSorted.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 transition-opacity duration-150 ${isFiltering ? 'opacity-50' : 'opacity-100'}`}>
                   {filteredAndSorted.map((property) => (
                     <Link key={property.id} href={`/properties/${property.id}`} className="group block">
                       <Card className="border-none shadow-none bg-muted/50 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">

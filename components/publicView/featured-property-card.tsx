@@ -30,149 +30,115 @@ export function FeaturedPropertyCard({ property }: FeaturedPropertyCardProps) {
 
   return (
     <Link href={`/properties/${property.id}`} className="group block">
-      <Card className="overflow-hidden border-2 border-amber-200/50 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/30 hover:border-amber-300 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 relative">
-        {/* Premium Badge */}
-        <div className="absolute top-4 left-4 z-20">
-          <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white border-0 shadow-lg flex items-center gap-1.5 px-3 py-1.5">
-            <Crown className="w-3.5 h-3.5 fill-current" />
-            <span className="font-semibold text-xs">FEATURED</span>
+      <Card className="overflow-hidden border border-slate-200 hover:border-amber-400/50 bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative h-full">
+        {/* Premium Badge - Subtle */}
+        <div className="absolute top-3 left-3 z-20">
+          <Badge className="bg-amber-500 text-white border-0 shadow-md px-2 py-0.5 text-xs font-semibold">
+            FEATURED
           </Badge>
         </div>
 
-        {/* Sparkle Effect */}
-        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-          <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
-        </div>
-
-        {/* Image Container */}
-        <div className="relative h-64 sm:h-72 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
+        {/* Image Container - Compact */}
+        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
           {property.image_url ? (
             <Image
               src={property.image_url}
               alt={property.title}
               fill
-              className="object-cover transition-transform duration-700 group-hover:scale-110"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-amber-50">
-              <div className="text-center">
-                <Crown className="h-12 w-12 text-amber-400 mx-auto mb-2" />
-                <p className="text-sm text-amber-600 font-medium">Premium Property</p>
-              </div>
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50">
+              <Star className="h-10 w-10 text-slate-300" />
             </div>
           )}
           
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
+          {/* Subtle Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           
-          {/* Property Code */}
+          {/* Property Code - Bottom Left */}
           {property.property_code && (
-            <div className="absolute bottom-4 left-4 z-10">
-              <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-slate-900 font-mono text-xs border-0 shadow-md">
+            <div className="absolute bottom-2 left-2 z-10">
+              <Badge variant="secondary" className="bg-white/95 backdrop-blur-sm text-slate-700 font-mono text-xs border-0 shadow-sm">
                 {property.property_code}
               </Badge>
             </div>
           )}
           
-          {/* Category Badge */}
+          {/* Category Badge - Top Right */}
           {property.category && (
-            <div className="absolute bottom-4 right-4 z-10">
-              <Badge variant="secondary" className="bg-primary/90 backdrop-blur-sm text-white text-xs border-0 shadow-md capitalize">
+            <div className="absolute top-3 right-3 z-10">
+              <Badge variant="secondary" className="bg-slate-900/80 backdrop-blur-sm text-white text-xs border-0 capitalize">
                 {property.category}
               </Badge>
             </div>
           )}
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4 bg-gradient-to-br from-white via-amber-50/20 to-white">
+        {/* Content - Compact */}
+        <div className="p-4 space-y-3">
           {/* Title and Location */}
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-slate-900 line-clamp-2 group-hover:text-amber-700 transition-colors duration-300">
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-slate-900 line-clamp-1 group-hover:text-amber-600 transition-colors">
               {property.title}
             </h3>
-            <div className="flex items-center gap-2 text-slate-600">
-              <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <MapPin className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
               <span className="text-sm line-clamp-1">{property.location}</span>
             </div>
           </div>
 
-          {/* Price - Prominent */}
-          <div className="py-3 px-4 bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl border border-amber-200/50 shadow-sm">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-amber-700">
-                UGX {formatPrice(property.price_ugx)}
-              </span>
+          {/* Price - Clean Design */}
+          <div className="py-2 px-3 bg-amber-50 rounded-lg border border-amber-100">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <span className="text-2xl font-bold text-amber-700">
+                  UGX {formatPrice(property.price_ugx)}
+                </span>
+                <span className="text-xs text-amber-600 ml-2">/ month</span>
+              </div>
             </div>
-            <span className="text-xs text-amber-600 font-medium uppercase tracking-wide">per month</span>
           </div>
 
-          {/* Features with Icons */}
-          <div className="flex items-center justify-between py-3 px-4 bg-slate-50/50 rounded-lg border border-slate-200/50">
-            <div className="flex items-center gap-2 text-slate-700">
-              <div className="p-2 rounded-lg bg-white shadow-sm">
-                <Bed className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs text-slate-500 font-medium">Bedrooms</p>
-                <p className="text-sm font-bold text-slate-900">{property.bedrooms}</p>
-              </div>
+          {/* Features - Compact Grid */}
+          <div className="grid grid-cols-3 gap-2 py-2">
+            <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+              <Bed className="w-4 h-4 text-amber-600 mb-1" />
+              <span className="text-xs font-semibold text-slate-900">{property.bedrooms}</span>
+              <span className="text-xs text-slate-500">Beds</span>
             </div>
             
-            <div className="w-px h-10 bg-slate-200" />
-            
-            <div className="flex items-center gap-2 text-slate-700">
-              <div className="p-2 rounded-lg bg-white shadow-sm">
-                <Bath className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs text-slate-500 font-medium">Bathrooms</p>
-                <p className="text-sm font-bold text-slate-900">{property.bathrooms}</p>
-              </div>
+            <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+              <Bath className="w-4 h-4 text-amber-600 mb-1" />
+              <span className="text-xs font-semibold text-slate-900">{property.bathrooms}</span>
+              <span className="text-xs text-slate-500">Baths</span>
             </div>
             
-            {property.area && (
-              <>
-                <div className="w-px h-10 bg-slate-200" />
-                
-                <div className="flex items-center gap-2 text-slate-700">
-                  <div className="p-2 rounded-lg bg-white shadow-sm">
-                    <Square className="w-4 h-4 text-amber-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs text-slate-500 font-medium">Area</p>
-                    <p className="text-sm font-bold text-slate-900">{property.area}m²</p>
-                  </div>
-                </div>
-              </>
+            {property.area ? (
+              <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+                <Square className="w-4 h-4 text-amber-600 mb-1" />
+                <span className="text-xs font-semibold text-slate-900">{property.area}m²</span>
+                <span className="text-xs text-slate-500">Area</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
+                <Star className="w-4 h-4 text-amber-500 mb-1 fill-amber-500" />
+                <span className="text-xs font-semibold text-slate-900">Top</span>
+                <span className="text-xs text-slate-500">Rated</span>
+              </div>
             )}
           </div>
 
-          {/* Premium CTA */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg text-white group-hover:from-amber-600 group-hover:to-amber-700 transition-all duration-300 shadow-lg group-hover:shadow-xl">
-              <span className="font-semibold text-sm">View Premium Details</span>
-              <ArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
-            </div>
-          </div>
-
-          {/* Trust Indicators */}
-          <div className="flex items-center justify-center gap-4 pt-2 border-t border-amber-200/50">
+          {/* Trust Badge - Compact */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
             <div className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <span className="text-xs text-slate-600 font-medium">Premium Verified</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+              <span className="text-xs text-slate-600 font-medium">Verified</span>
             </div>
-            <div className="w-1 h-1 rounded-full bg-slate-300" />
-            <div className="flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-amber-600" />
-              <span className="text-xs text-slate-600 font-medium">Quality Assured</span>
-            </div>
+            <ArrowRight className="w-4 h-4 text-amber-600 transform group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
-
-        {/* Decorative Corner */}
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/20 to-transparent rounded-bl-full pointer-events-none" />
       </Card>
     </Link>
   )
