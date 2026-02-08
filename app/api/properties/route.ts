@@ -224,6 +224,7 @@ export async function GET(request: Request) {
     // Parse URL parameters
     const { searchParams } = new URL(request.url)
     const blockId = searchParams.get('block_id')
+    const includeInactive = searchParams.get('include_inactive') === 'true'
 
     // Build query with optional block_id filter
     let query = supabaseAdmin
@@ -252,10 +253,11 @@ export async function GET(request: Request) {
     if (blockId) {
       // If block_id is provided, fetch properties for that specific block (for editing)
       query = query.eq('block_id', blockId)
-    } else {
-      // Otherwise, only fetch active properties for public view
+    } else if (!includeInactive) {
+      // Only fetch active properties for public view (unless include_inactive is true)
       query = query.eq('is_active', true)
     }
+    // If includeInactive is true and no blockId, fetch ALL properties (no filter)
 
     const { data: properties, error: propertiesError } = await query.order('created_at', { ascending: false });
     

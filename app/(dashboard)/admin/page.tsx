@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { AdminSidebar } from "@/components/adminView/admin-sidebar"
 import { AdminStats } from "@/components/adminView/admin-stats"
 import { AdminAnalytics } from "@/components/adminView/admin-analytics"
-import { UpcomingPayments } from "@/components/tenantView/upcoming-payments"
+import { RecentActivity } from "@/components/adminView/recent-activity"
+import { redirect } from "next/navigation"
 
 // Helper function to get month name from date
 const getMonthName = (dateString: string) => {
@@ -11,95 +13,231 @@ const getMonthName = (dateString: string) => {
   return months[date.getMonth()];
 };
 
+// Helper to get access token
+async function getAccessToken(supabase: any) {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
+
 export default async function AdminDashboard() {
   const supabase = await createClient()
 
-  // Fetch stats and data for the admin
+  // Check authentication and admin status
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.is_admin) {
+    redirect('/')
+  }
+
+  // Use admin client to bypass RLS and get all data
+  const adminClient = createAdminClient()
+
+  // Fetch properties via API route (same as /admin/properties page) to get ALL properties
+  let allProperties: any[] = [];
+  try {
+    const propertiesRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/properties?include_inactive=true`, {
+      headers: {
+        'Authorization': `Bearer ${await getAccessToken(supabase)}`
+      },
+      cache: 'no-store'
+    });
+
+    if (propertiesRes.ok) {
+      const propertiesData = await propertiesRes.json();
+      allProperties = propertiesData.properties || [];
+    } else {
+      console.error('Failed to fetch properties via API:', propertiesRes.status);
+    }
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+  }
+
+  // Fetch comprehensive stats and data using admin client
   const [
-    propertiesResult, 
-    bookingsResult, 
-    usersResult, 
-    paymentsResult,
-    revenueResult
+    occupanciesResult,
+    usersResult,
+    recentTransactionsResult,
+    revenueResult,
+    landlordPropertiesResult,
+    recentActivitiesResult
   ] = await Promise.all([
-    supabase.from("properties").select("*", { count: "exact" }),
-    supabase
-      .from("bookings")
-      .select("*, properties(title), profiles(full_name, email), property_units(floor_number, unit_number)", { count: "exact" })
+    // Active occupancies
+    adminClient
+      .from("property_occupancy_history")
+      .select("*, properties(title, property_code), profiles!property_occupancy_history_tenant_id_fkey(full_name, email)", { count: "exact" })
+      .eq("status", "active")
+      .order("end_date", { ascending: true })
+      .limit(10),
+    
+    // Total users (tenants)
+    adminClient
+      .from("profiles")
+      .select("id, created_at", { count: "exact" })
+      .eq("is_admin", false),
+    
+    // Recent payment transactions
+    adminClient
+      .from("payment_transactions")
+      .select(`
+        id,
+        amount_ugx,
+        payment_method,
+        status,
+        created_at,
+        profiles!payment_transactions_tenant_id_fkey(full_name, email)
+      `)
       .order("created_at", { ascending: false })
       .limit(10),
-    supabase.from("profiles").select("*", { count: "exact" }),
-    supabase
-      .from("bookings")
-      .select("*, properties(title), property_units(floor_number, unit_number)")
-      .in("status", ["confirmed"])
-      .gte("check_out", new Date().toISOString().split('T')[0])
-      .order("check_in", { ascending: true })
-      .limit(5),
-    supabase
-      .from("bookings")
-      .select("total_price_ugx, created_at")
-      .gte("created_at", new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()) // Last 6 months
+    
+    // Revenue data for last 6 months
+    adminClient
+      .from("payment_transactions")
+      .select("amount_ugx, created_at, status")
+      .eq("status", "completed")
+      .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
+    
+    // Landlord properties count
+    adminClient
+      .from("landlord_profiles")
+      .select("id", { count: "exact" }),
+
+    // Recent property views and interests
+    adminClient
+      .from("property_interested")
+      .select(`
+        id,
+        created_at,
+        properties(title, property_code),
+        profiles(full_name, email)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(10)
   ])
 
-  // Calculate revenue data grouped by month
+  // Calculate stats from fetched properties
+  const totalProperties = allProperties.length
+  const availableProperties = allProperties.filter(p => !p.is_occupied).length
+  const occupiedProperties = allProperties.filter(p => p.is_occupied).length
+  const totalUsers = usersResult.count || 0
+  const activeOccupancies = occupanciesResult.count || 0
+  const totalLandlords = landlordPropertiesResult.count || 0
+
+  // Calculate revenue by month
   const revenueByMonth: Record<string, number> = {};
   if (revenueResult.data) {
-    for (const booking of revenueResult.data) {
-      if (booking.total_price_ugx) {
-        const month = getMonthName(booking.created_at);
-        revenueByMonth[month] = (revenueByMonth[month] || 0) + booking.total_price_ugx;
+    for (const transaction of revenueResult.data) {
+      if (transaction.amount_ugx && transaction.status === 'completed') {
+        const month = getMonthName(transaction.created_at);
+        revenueByMonth[month] = (revenueByMonth[month] || 0) + transaction.amount_ugx;
       }
     }
   }
 
-  // Create revenue data array for chart
-  const revenueData = Object.entries(revenueByMonth).map(([month, revenue]) => ({
-    month,
-    revenue
-  }));
+  // Create revenue data array for chart (last 6 months)
+  const now = new Date();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const revenueData = [];
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthName = months[date.getMonth()];
+    revenueData.push({
+      month: monthName,
+      revenue: revenueByMonth[monthName] || 0
+    });
+  }
 
-  // Calculate additional stats
-  const totalUsers = usersResult.count || 0
-  const confirmedBookings = bookingsResult.data?.filter(b => b.status === 'confirmed').length || 0
-  const pendingBookings = bookingsResult.data?.filter(b => b.status === 'pending').length || 0
+  // Calculate total revenue
+  const totalRevenue = Object.values(revenueByMonth).reduce((sum, val) => sum + val, 0);
 
-  // Default revenue data if no real data is available
-  const finalRevenueData = revenueData.length > 0 
-    ? revenueData 
-    : [
-        { month: "Jan", revenue: 4500000 },
-        { month: "Feb", revenue: 5200000 },
-        { month: "Mar", revenue: 4800000 },
-        { month: "Apr", revenue: 6100000 },
-        { month: "May", revenue: 5900000 },
-        { month: "Jun", revenue: 7200000 },
-      ];
+  // Calculate booking trends (simulated from transactions - group by day of week)
+  const bookingTrends = [
+    { day: "Mon", bookings: 0 },
+    { day: "Tue", bookings: 0 },
+    { day: "Wed", bookings: 0 },
+    { day: "Thu", bookings: 0 },
+    { day: "Fri", bookings: 0 },
+    { day: "Sat", bookings: 0 },
+    { day: "Sun", bookings: 0 },
+  ];
+
+  if (recentTransactionsResult.data) {
+    const lastWeek = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    recentTransactionsResult.data.forEach(transaction => {
+      const transactionDate = new Date(transaction.created_at);
+      if (transactionDate.getTime() >= lastWeek) {
+        const dayIndex = transactionDate.getDay();
+        const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex];
+        const trend = bookingTrends.find(t => t.day === dayName);
+        if (trend) trend.bookings++;
+      }
+    });
+  }
+
+  // Calculate top properties by revenue from fetched properties
+  const topProperties = allProperties
+    .map(property => ({
+      name: property.title,
+      location: property.location || 'N/A',
+      occupancy: property.is_occupied ? '100%' : '0%',
+      revenue: property.price_ugx || 0
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 3);
+
+  // Prepare recent activities
+  const recentActivities = recentActivitiesResult.data?.map(activity => ({
+    id: activity.id,
+    type: 'property_interest' as const,
+    description: `${activity.profiles?.full_name || 'Someone'} showed interest in ${activity.properties?.title || 'a property'}`,
+    timestamp: activity.created_at,
+    user: activity.profiles?.full_name || 'Unknown',
+    propertyCode: activity.properties?.property_code
+  })) || [];
 
   return (
     <div className="flex min-h-screen bg-background">
       <AdminSidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="flex items-center justify-between mb-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Manage your rental properties and bookings.</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
+              Overview of your rental management system
+            </p>
           </div>
         </div>
 
         <AdminStats 
-          totalProperties={propertiesResult.count || 0} 
-          totalBookings={bookingsResult.count || 0} 
+          totalProperties={totalProperties}
+          availableProperties={availableProperties}
+          occupiedProperties={occupiedProperties}
           totalUsers={totalUsers}
-          confirmedBookings={confirmedBookings}
-          pendingBookings={pendingBookings}
+          activeOccupancies={activeOccupancies}
+          totalRevenue={totalRevenue}
+          totalLandlords={totalLandlords}
         />
 
-        <div className="mt-12 space-y-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <AdminAnalytics revenueData={finalRevenueData} />
-            <UpcomingPayments bookings={paymentsResult.data || []} />
-          </div>
+        <div className="mt-8 md:mt-12 space-y-8">
+          <AdminAnalytics 
+            revenueData={revenueData}
+            bookingTrends={bookingTrends}
+            topProperties={topProperties}
+          />
+
+          <RecentActivity 
+            activities={recentActivities}
+            occupancies={occupanciesResult.data || []}
+            transactions={recentTransactionsResult.data || []}
+          />
         </div>
       </main>
     </div>

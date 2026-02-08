@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminSidebar } from "@/components/adminView/admin-sidebar";
 import { ComprehensivePropertyManager } from "@/components/adminView/comprehensive-property-manager";
 import { AdminStats } from "@/components/adminView/admin-stats";
@@ -75,20 +76,22 @@ export default async function AdminPropertiesPage() {
     );
   }
 
+  // Use admin client to bypass RLS and get all data
+  const adminClient = createAdminClient();
+
   // Fetch properties and related data for comprehensive management
   // Use the new API endpoint for properties instead of direct Supabase query
   let propertiesResult = { data: [], count: 0 };
-  let bookingsResult = { data: [], count: 0 };
-  let usersResult = { count: 0 };
   let blocksResult = { data: [], count: 0 };
   let unitsResult = { data: [], count: 0 };
 
   try {
-    // Fetch properties via API route which uses service role key
-    const propertiesRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/properties`, {
+    // Fetch properties via API route which uses service role key (include inactive for admin)
+    const propertiesRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/properties?include_inactive=true`, {
       headers: {
         'Authorization': `Bearer ${await getAccessToken(supabase)}`
-      }
+      },
+      cache: 'no-store'
     });
 
     if (propertiesRes.ok) {
@@ -98,38 +101,21 @@ export default async function AdminPropertiesPage() {
       console.error('Failed to fetch properties via API:', propertiesRes.status);
     }
 
-    // For other data, we'll still use direct Supabase queries but with fallbacks
-    const [bookingsRes, usersRes, blocksRes, unitsRes] = await Promise.all([
+    // For other data, use admin client for direct queries
+    const [blocksRes, unitsRes] = await Promise.all([
       safeSupabaseQuery(
-        supabase
-          .from("bookings")
-          .select("*", { count: "exact" })
-          .order("created_at", { ascending: false })
-      ),
-      safeSupabaseQuery(
-        supabase
-          .from("profiles")
-          .select("*", { count: "exact" })
-      ),
-      safeSupabaseQuery(
-        supabase
+        adminClient
           .from("property_blocks")
           .select("*", { count: "exact" })
       ),
       safeSupabaseQuery(
-        supabase
+        adminClient
           .from("property_units")
           .select("*", { count: "exact" })
       )
     ]);
 
     // Check for specific error conditions that are handled gracefully
-    const hasBookingsTableError = bookingsRes.error?.message?.includes('Could not find the table') || 
-                                  bookingsRes.error?.message?.includes('bookings') ||
-                                  bookingsRes.error?.message?.includes('Access denied');
-    const hasProfilesTableError = usersRes.error?.message?.includes('Could not find the table') || 
-                                  usersRes.error?.message?.includes('profiles') ||
-                                  usersRes.error?.message?.includes('Access denied');
     const hasBlocksTableError = blocksRes.error?.message?.includes('Could not find the table') || 
                                 blocksRes.error?.message?.includes('property_blocks') ||
                                 blocksRes.error?.message?.includes('Access denied');
@@ -137,25 +123,63 @@ export default async function AdminPropertiesPage() {
                                unitsRes.error?.message?.includes('property_units') ||
                                unitsRes.error?.message?.includes('Access denied');
 
-    bookingsResult = hasBookingsTableError ? { data: [], count: 0 } : bookingsRes;
-    usersResult = hasProfilesTableError ? { count: 0 } : usersRes;
     blocksResult = hasBlocksTableError ? { data: [], count: 0 } : blocksRes;
     unitsResult = hasUnitsTableError ? { data: [], count: 0 } : unitsRes;
   } catch (error) {
     console.error('Error fetching data:', error);
   }
 
-  // Calculate booking statistics
-  let confirmedBookings = 0;
-  let pendingBookings = 0;
-  
-  if (bookingsResult.data && Array.isArray(bookingsResult.data)) {
-    confirmedBookings = bookingsResult.data.filter((booking: any) => booking.status === 'confirmed').length;
-    pendingBookings = bookingsResult.data.filter((booking: any) => booking.status === 'pending').length;
-  } else {
-    // If the result only has count (without data array), we can't calculate confirmed/pending breakdown
-    // We'll keep them as 0, which is the default
+  // Fetch additional stats using admin client (same as /admin page)
+  const [
+    occupanciesResult,
+    usersResult,
+    revenueResult,
+    landlordPropertiesResult
+  ] = await Promise.all([
+    // Active occupancies
+    adminClient
+      .from("property_occupancy_history")
+      .select("id", { count: "exact" })
+      .eq("status", "active"),
+    
+    // Total users (tenants)
+    adminClient
+      .from("profiles")
+      .select("id", { count: "exact" })
+      .eq("is_admin", false),
+    
+    // Revenue data for last 6 months
+    adminClient
+      .from("payment_transactions")
+      .select("amount_ugx, created_at, status")
+      .eq("status", "completed")
+      .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
+    
+    // Landlord profiles count
+    adminClient
+      .from("landlord_profiles")
+      .select("id", { count: "exact" })
+  ]);
+
+  // Calculate stats from fetched properties
+  const totalProperties = propertiesResult.count || 0;
+  const availableProperties = propertiesResult.data?.filter((p: any) => !p.is_occupied).length || 0;
+  const occupiedProperties = propertiesResult.data?.filter((p: any) => p.is_occupied).length || 0;
+  const totalUsers = usersResult.count || 0;
+  const activeOccupancies = occupanciesResult.count || 0;
+  const totalLandlords = landlordPropertiesResult.count || 0;
+
+  // Calculate total revenue (same logic as /admin page)
+  const revenueByMonth: Record<string, number> = {};
+  if (revenueResult.data) {
+    for (const transaction of revenueResult.data) {
+      if (transaction.amount_ugx && transaction.status === 'completed') {
+        const month = new Date(transaction.created_at).toLocaleString('en', { month: 'short' });
+        revenueByMonth[month] = (revenueByMonth[month] || 0) + transaction.amount_ugx;
+      }
+    }
   }
+  const totalRevenue = Object.values(revenueByMonth).reduce((sum, val) => sum + val, 0);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -173,11 +197,13 @@ export default async function AdminPropertiesPage() {
           </div>
 
           <AdminStats 
-            totalProperties={propertiesResult.count || 0} 
-            totalBookings={bookingsResult.count || 0} 
-            totalUsers={usersResult.count || 0}
-            confirmedBookings={confirmedBookings}
-            pendingBookings={pendingBookings}
+            totalProperties={totalProperties}
+            availableProperties={availableProperties}
+            occupiedProperties={occupiedProperties}
+            totalUsers={totalUsers}
+            activeOccupancies={activeOccupancies}
+            totalRevenue={totalRevenue}
+            totalLandlords={totalLandlords}
           />
 
           <div className="mt-8">
