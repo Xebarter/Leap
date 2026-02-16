@@ -22,6 +22,7 @@ export default function SignUpPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [pendingVisit, setPendingVisit] = useState<any>(null)
+  const userType = searchParams.get('type') || 'tenant' // tenant or landlord
 
   // Check for pending visit and redirect URL
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function SignUpPage() {
           password,
           fullName,
           isAdmin,
+          userType: isAdmin ? 'admin' : userType, // Pass the user type (tenant or landlord)
         }),
       })
 
@@ -75,7 +77,7 @@ export default function SignUpPage() {
           return
         }
 
-        const redirectPath = isAdmin ? '/admin' : '/tenant'
+        const redirectPath = isAdmin ? '/admin' : userType === 'landlord' ? '/landlord' : '/tenant'
         router.push(redirectPath)
         router.refresh()
       } else {
@@ -143,12 +145,18 @@ export default function SignUpPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">
-              {pendingVisit ? 'Create Tenant Account' : 'Join Leap'}
+              {pendingVisit 
+                ? 'Create Tenant Account' 
+                : userType === 'landlord' 
+                  ? 'Create Landlord Account' 
+                  : 'Join Leap'}
             </CardTitle>
             <CardDescription>
               {pendingVisit 
                 ? 'Create your account to schedule property visits and more'
-                : 'Create an account to start renting'
+                : userType === 'landlord'
+                  ? 'Create an account to manage your properties and tenants'
+                  : 'Create an account to start renting'
               }
             </CardDescription>
           </CardHeader>
@@ -227,13 +235,35 @@ export default function SignUpPage() {
                 <Link 
                   href={pendingVisit 
                     ? `/auth/login?redirect=${searchParams.get('redirect')}&action=schedule-visit`
-                    : "/auth/login"
+                    : `/auth/login${userType ? `?type=${userType}` : ''}`
                   } 
                   className="underline underline-offset-4"
                 >
                   Login
                 </Link>
               </div>
+              {userType === 'landlord' && !pendingVisit && (
+                <div className="text-center text-xs text-muted-foreground">
+                  Looking for a property?{" "}
+                  <Link 
+                    href="/auth/sign-up?type=tenant" 
+                    className="underline underline-offset-4 text-primary"
+                  >
+                    Sign up as tenant
+                  </Link>
+                </div>
+              )}
+              {userType === 'tenant' && !pendingVisit && (
+                <div className="text-center text-xs text-muted-foreground">
+                  Have properties to rent?{" "}
+                  <Link 
+                    href="/auth/sign-up?type=landlord" 
+                    className="underline underline-offset-4 text-primary"
+                  >
+                    Sign up as landlord
+                  </Link>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

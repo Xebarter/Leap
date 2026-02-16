@@ -1,19 +1,33 @@
-pages-dev-overlay-setup.tsx:85 ./components/adminView/buildings-manager/index.tsx:745:21
+## Error Type
+Build Error
+
+## Error Message
 Parsing ecmascript source code failed
-  743 |           </Button>
-  744 |         </div>
-> 745 |       </CardContent>
-      |                     ^
-> 746 |     </Card>
-      | ^^^^^
-  747 |   )
-  748 | }
-  749 |
 
-Expected '</', got 'jsx text (
-    )'
+## Build Output
+./components/publicView/schedule-visit-dialog.tsx:638:5
+Parsing ecmascript source code failed
+  636 |         )}
+  637 |       </DialogContent>
+> 638 |     </Dialog>
+      |     ^
+  639 |   )
+  640 | }
+  641 |
 
-Import trace:
-  Server Component:
-    ./components/adminView/buildings-manager/index.tsx
-    ./app/(dashboard)/admin/buildings/page.tsx
+Expression expected
+
+Import traces:
+  Client Component Browser:
+    ./components/publicView/schedule-visit-dialog.tsx [Client Component Browser]
+    ./app/(public)/properties/[id]/property-details-content.tsx [Client Component Browser]
+    ./app/(public)/properties/[id]/property-details-content.tsx [Server Component]
+    ./app/(public)/properties/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/publicView/schedule-visit-dialog.tsx [Client Component SSR]
+    ./app/(public)/properties/[id]/property-details-content.tsx [Client Component SSR]
+    ./app/(public)/properties/[id]/property-details-content.tsx [Server Component]
+    ./app/(public)/properties/[id]/page.tsx [Server Component]
+
+Next.js version: 16.0.10 (Turbopack)

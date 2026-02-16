@@ -20,6 +20,8 @@ import { Calendar, Clock, User, Mail, Phone, MapPin, Sparkles, CheckCircle2, Log
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
+import { TwoStepAuthWrapper } from "./two-step-auth-wrapper"
 
 interface ScheduleVisitDialogProps {
   propertyId: string
@@ -45,8 +47,6 @@ export function ScheduleVisitDialog({
   const [isSuccess, setIsSuccess] = useState(false)
   const [minDate, setMinDate] = useState("")
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [scheduledDetails, setScheduledDetails] = useState<{ date: string; time: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState("")
   const [timeConstraints, setTimeConstraints] = useState({ min: "08:00", max: "18:00" })
@@ -58,25 +58,6 @@ export function ScheduleVisitDialog({
     tomorrow.setDate(tomorrow.getDate() + 1)
     setMinDate(tomorrow.toISOString().split("T")[0])
   }, [])
-
-  // Check if user is logged in
-  useEffect(() => {
-    const checkUser = async () => {
-      setIsCheckingAuth(true)
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setCurrentUser(user)
-      setIsCheckingAuth(false)
-      
-      // If not logged in when dialog opens, show auth prompt
-      if (!user && open) {
-        setShowAuthPrompt(true)
-      }
-    }
-    checkUser()
-  }, [open])
 
   // Update time constraints based on selected date (Sunday vs other days)
   useEffect(() => {
@@ -94,32 +75,13 @@ export function ScheduleVisitDialog({
     }
   }, [selectedDate])
 
-  // Save visit context for after authentication
-  const saveVisitContext = () => {
-    const context = {
-      propertyId,
-      propertyTitle,
-      propertyLocation,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem('pendingVisit', JSON.stringify(context))
-  }
-
-  // Handle authentication redirect
-  const handleAuthRedirect = (type: 'login' | 'signup') => {
-    saveVisitContext()
-    const returnUrl = encodeURIComponent(window.location.pathname)
-    router.push(`/auth/${type === 'login' ? 'login' : 'sign-up'}?redirect=${returnUrl}&action=schedule-visit`)
+  // Handle successful authentication
+  const handleAuthSuccess = async (user: any) => {
+    setCurrentUser(user)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    
-    // Check if user is authenticated for tenant registration
-    if (!currentUser) {
-      setShowAuthPrompt(true)
-      return
-    }
     
     setIsLoading(true)
 
@@ -208,155 +170,89 @@ export function ScheduleVisitDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden">
-        {showAuthPrompt ? (
-          /* Authentication Required Prompt */
-          <div className="p-8 space-y-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <User className="w-8 h-8 text-primary" />
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        {isSuccess ? (
+          /* Success State */
+          <>
+            <VisuallyHidden.Root>
+              <DialogTitle>Visit Scheduled!</DialogTitle>
+            </VisuallyHidden.Root>
+            <div className="p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
+                <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold">Sign in to Schedule Your Visit</h3>
+                <h3 className="text-2xl font-bold">Visit Scheduled!</h3>
                 <p className="text-muted-foreground">
-                  Create a free account or sign in as a tenant to book your property visit
+                  Your visit to <strong className="text-foreground">{propertyTitle}</strong> has been confirmed.
                 </p>
               </div>
-            </div>
-
-            {/* Property Info */}
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className="font-medium text-sm">{propertyTitle}</div>
-                  <div className="text-xs text-muted-foreground">{propertyLocation}</div>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="font-medium">
+                    {scheduledDetails && new Date(scheduledDetails.date).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="font-medium">{scheduledDetails?.time}</span>
                 </div>
               </div>
-            </div>
-
-            {/* Benefits */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium">With a tenant account you can:</p>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Schedule and manage property visits
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Save favorite properties
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Track your booking history
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Get instant confirmations
-                </li>
-              </ul>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <Button 
-                onClick={() => handleAuthRedirect('signup')}
-                className="w-full gap-2"
-                size="lg"
-              >
-                <UserPlus className="w-4 h-4" />
-                Create Tenant Account
-                <ArrowRight className="w-4 h-4 ml-auto" />
-              </Button>
-              <Button 
-                onClick={() => handleAuthRedirect('login')}
-                variant="outline"
-                className="w-full gap-2"
-                size="lg"
-              >
-                <LogIn className="w-4 h-4" />
-                Sign In to Existing Account
-              </Button>
-            </div>
-
-            <div className="text-center">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowAuthPrompt(false)
-                  setOpen(false)
-                }}
-                className="text-sm text-muted-foreground"
-              >
-                Maybe later
-              </Button>
-            </div>
-          </div>
-        ) : isSuccess ? (
-          /* Success State */
-          <div className="p-8 text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-              <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold">Visit Scheduled!</h3>
-              <p className="text-muted-foreground">
-                Your visit to <strong className="text-foreground">{propertyTitle}</strong> has been confirmed.
-              </p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <div className="flex items-center justify-center gap-2 text-sm">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span className="font-medium">
-                  {scheduledDetails && new Date(scheduledDetails.date).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </span>
-              </div>
-              <div className="flex items-center justify-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-primary" />
-                <span className="font-medium">{scheduledDetails?.time}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                We've sent a confirmation to your email. See you soon!
-              </p>
-              {currentUser && (
-                <p className="text-xs text-muted-foreground">
-                  Redirecting to your dashboard...
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  We've sent a confirmation to your email. See you soon!
                 </p>
-              )}
+                {currentUser && (
+                  <p className="text-xs text-muted-foreground">
+                    Redirecting to your dashboard...
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         ) : (
-          <>
+          <TwoStepAuthWrapper
+            open={open}
+            onOpenChange={setOpen}
+            authTitle="Create Your Account to Schedule Visit"
+            authDescription="Quick sign-up - takes less than 30 seconds"
+            contentTitle="Schedule Your Visit"
+            authBadge={
+              <Badge variant="secondary" className="gap-1">
+                <Sparkles className="w-3 h-3" />
+                Free Visit
+              </Badge>
+            }
+            onAuthSuccess={handleAuthSuccess}
+          >
             {/* Header with gradient background */}
             <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 pb-8">
-          <div className="absolute top-4 right-4">
-            <Badge variant="secondary" className="gap-1">
-              <Sparkles className="w-3 h-3" />
-              Free Visit
-            </Badge>
-          </div>
-          <DialogHeader className="space-y-3">
-            <DialogTitle className="text-2xl font-bold">Schedule Your Visit</DialogTitle>
-            <div className="flex items-start gap-2 text-muted-foreground">
-              <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <DialogDescription className="text-base">
-                Book a time to visit <strong className="text-foreground">{propertyTitle}</strong> at {propertyLocation}
-              </DialogDescription>
+              <div className="absolute top-4 right-4">
+                <Badge variant="secondary" className="gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Step 2 of 2
+                </Badge>
+              </div>
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-2xl font-bold">Schedule Your Visit</DialogTitle>
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <DialogDescription className="text-base">
+                    Book a time to visit <strong className="text-foreground">{propertyTitle}</strong> at {propertyLocation}
+                  </DialogDescription>
+                </div>
+              </DialogHeader>
             </div>
-          </DialogHeader>
-        </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col">
-          <div className="grid gap-6 p-6 max-h-[60vh] overflow-y-auto">
-            {/* Visitor Information Section */}
+            <form onSubmit={handleSubmit} className="flex flex-col">
+              <div className="grid gap-6 p-6 max-h-[60vh] overflow-y-auto">
+                {/* Visitor Information Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -565,10 +461,10 @@ export function ScheduleVisitDialog({
                   )}
                 </Button>
               </div>
+              </div>
             </div>
-          </div>
-        </form>
-          </>
+          </form>
+          </TwoStepAuthWrapper>
         )}
       </DialogContent>
     </Dialog>

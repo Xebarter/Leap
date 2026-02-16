@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
+import { ProfileMenu } from './profile-menu'
 
 export function PublicHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -49,19 +50,20 @@ export function PublicHeader() {
               ))}
             </nav>
 
-            {/* Auth Buttons & Mobile Toggle */}
+            {/* Profile Menu & Mobile Toggle */}
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex items-center gap-2">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/auth/login">
-                    Sign In
-                  </Link>
-                </Button>
-                <Button asChild size="sm">
+                <ProfileMenu />
+                <Button asChild size="sm" className="ml-2">
                   <Link href="/auth/sign-up">
                     Get Started
                   </Link>
                 </Button>
+              </div>
+
+              {/* Mobile: Profile Menu */}
+              <div className="sm:hidden">
+                <ProfileMenu />
               </div>
 
               {/* Mobile Menu Button */}
@@ -89,11 +91,6 @@ export function PublicHeader() {
                 </Button>
               ))}
               <div className="pt-2 border-t border-border/50 space-y-2">
-                <Button asChild variant="ghost" className="w-full justify-start text-sm">
-                  <Link href="/auth/login">
-                    Sign In
-                  </Link>
-                </Button>
                 <Button asChild className="w-full justify-start text-sm">
                   <Link href="/auth/sign-up">
                     Get Started

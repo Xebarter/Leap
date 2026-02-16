@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { 
   FileText, 
   Upload, 
@@ -21,7 +22,10 @@ import {
   Info,
   X,
   FileCheck,
-  AlertCircle
+  AlertCircle,
+  Briefcase,
+  Users2,
+  CheckCircle2
 } from "lucide-react"
 
 export function ApplicationForm({
@@ -44,14 +48,42 @@ export function ApplicationForm({
   router
 }: any) {
 
-  const [step, setStep] = useState(1)
-  const totalSteps = 3
+  const [formValidation, setFormValidation] = useState({
+    personalInfo: false,
+    employmentInfo: false,
+    documents: false
+  })
+
+  // Track form completion for better UX
+  const updateValidation = () => {
+    const form = document.querySelector('form') as HTMLFormElement
+    if (!form) return
+
+    const formData = new FormData(form)
+    
+    setFormValidation({
+      personalInfo: !!(
+        formData.get('full_name') && 
+        formData.get('phone_number') && 
+        formData.get('email') &&
+        formData.get('current_address')
+      ),
+      employmentInfo: !!(
+        formData.get('employment_status') &&
+        formData.get('monthly_income') &&
+        formData.get('preferred_move_in_date')
+      ),
+      documents: !!(nationalIdFile && incomeProofFile)
+    })
+  }
 
   const handleFileChange = (file: File | null, type: 'nationalId' | 'incomeProof') => {
     // Validate file size (10MB max)
     if (file && file.size > 10 * 1024 * 1024) {
-      toast.error("File too large", {
-        description: "Please upload a file smaller than 10MB"
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 10MB",
+        variant: "destructive"
       })
       return
     }
@@ -59,8 +91,10 @@ export function ApplicationForm({
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
     if (file && !allowedTypes.includes(file.type)) {
-      toast.error("Invalid file type", {
-        description: "Please upload a JPG, PNG, or PDF file"
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a JPG, PNG, or PDF file",
+        variant: "destructive"
       })
       return
     }
@@ -70,31 +104,50 @@ export function ApplicationForm({
     } else {
       setIncomeProofFile(file)
     }
+    
+    // Update validation after file change
+    setTimeout(updateValidation, 100)
   }
 
   const uploadFile = async (file: File, path: string, type: 'nationalId' | 'incomeProof') => {
-    // Upload via API route (uses service role to bypass RLS)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('filePath', path)
-    formData.append('bucket', 'tenant-applications')
+    try {
+      // Upload via API route (uses service role to bypass RLS)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('filePath', path)
+      formData.append('bucket', 'tenant-applications')
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    })
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
 
-    if (!response.ok) {
-      const error = await response.json()
-      console.error(`Error uploading ${type}:`, error)
-      throw new Error(error.error || 'Upload failed')
-    }
+      if (!response.ok) {
+        let errorMessage = 'Upload failed'
+        try {
+          const error = await response.json()
+          console.error(`Error uploading ${type}:`, error)
+          errorMessage = error.error || error.details || `Upload failed with status ${response.status}`
+        } catch (parseError) {
+          console.error(`Failed to parse error response for ${type}:`, parseError)
+          errorMessage = `Upload failed with status ${response.status}`
+        }
+        throw new Error(errorMessage)
+      }
 
-    const result = await response.json()
+      const result = await response.json()
 
-    return {
-      url: result.url,
-      filename: file.name
+      if (!result.url) {
+        throw new Error('Upload succeeded but no URL was returned')
+      }
+
+      return {
+        url: result.url,
+        filename: file.name
+      }
+    } catch (error: any) {
+      console.error(`Error in uploadFile for ${type}:`, error)
+      throw new Error(error.message || `Failed to upload ${type === 'nationalId' ? 'National ID' : 'Proof of Income'}`)
     }
   }
 
@@ -102,13 +155,19 @@ export function ApplicationForm({
     e.preventDefault()
     
     if (!currentUser) {
-      toast.error("Please sign in to submit application")
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to submit application",
+        variant: "destructive"
+      })
       return
     }
 
     if (!nationalIdFile || !incomeProofFile) {
-      toast.error("Required documents missing", {
-        description: "Please upload both National ID/Passport and Proof of Income"
+      toast({
+        title: "Required documents missing",
+        description: "Please upload both National ID/Passport and Proof of Income",
+        variant: "destructive"
       })
       return
     }
@@ -125,7 +184,10 @@ export function ApplicationForm({
       const incomeProofPath = `${currentUser.id}/${timestamp}_income_proof_${incomeProofFile.name}`
 
       // Upload files
-      toast.info("Uploading documents...")
+      toast({
+        title: "Uploading documents...",
+        description: "Please wait while we upload your files"
+      })
       
       const [nationalIdUpload, incomeProofUpload] = await Promise.all([
         uploadFile(nationalIdFile, nationalIdPath, 'nationalId'),
@@ -171,7 +233,10 @@ export function ApplicationForm({
       setApplicationNumber(data.application_number)
       setIsSuccess(true)
 
-      toast.success("Application submitted successfully!")
+      toast({
+        title: "Application submitted successfully!",
+        description: "We'll review your application and get back to you soon"
+      })
 
       // Redirect after 3 seconds
       setTimeout(() => {
@@ -181,13 +246,31 @@ export function ApplicationForm({
 
     } catch (error: any) {
       console.error("Error submitting application:", error)
-      toast.error("Failed to submit application", {
-        description: error.message
+      
+      // Provide a meaningful error message
+      let errorMessage = "An unexpected error occurred. Please try again."
+      
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error?.error) {
+        errorMessage = error.error
+      }
+      
+      toast({
+        title: "Failed to submit application",
+        description: errorMessage,
+        variant: "destructive"
       })
     } finally {
       setIsLoading(false)
     }
   }
+
+  const completedSections = Object.values(formValidation).filter(Boolean).length
+  const totalSections = 3
+  const progressPercentage = (completedSections / totalSections) * 100
 
   return (
     <>
@@ -199,37 +282,55 @@ export function ApplicationForm({
       </DialogHeader>
       
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="w-6 h-6 text-primary" />
-              Apply for Rental
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Complete your application to rent this property
-            </p>
+      <div className="sticky top-0 z-10 bg-background border-b">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 sm:p-6">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                Apply for Rental
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Fill out all sections below to submit your application
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {completedSections}/{totalSections} Complete
+            </Badge>
           </div>
-          <div className="text-sm text-muted-foreground">
-            Step {step} of {totalSteps}
-          </div>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-muted rounded-full h-2">
-          <div 
-            className="bg-primary h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(step / totalSteps) * 100}%` }}
-          />
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <div className="flex gap-2 text-xs">
+              <span className={`flex items-center gap-1 ${formValidation.personalInfo ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formValidation.personalInfo ? <CheckCircle2 className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-current" />}
+                Personal
+              </span>
+              <span className={`flex items-center gap-1 ${formValidation.employmentInfo ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formValidation.employmentInfo ? <CheckCircle2 className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-current" />}
+                Employment
+              </span>
+              <span className={`flex items-center gap-1 ${formValidation.documents ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formValidation.documents ? <CheckCircle2 className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-current" />}
+                Documents
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form id="application-form" onSubmit={handleSubmit} onChange={updateValidation} className="p-4 sm:p-6 space-y-6 max-h-[70vh] overflow-y-auto">
         {/* Property Info */}
-        <div className="bg-muted/50 rounded-lg p-4">
+        <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20">
           <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
             <Home className="w-4 h-4 text-primary" />
-            Property Details
+            Property You're Applying For
           </h4>
           <div className="space-y-1">
             <div className="font-medium">{propertyTitle}</div>
@@ -240,13 +341,22 @@ export function ApplicationForm({
           </div>
         </div>
 
-        {/* Step 1: Personal Information */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
+        {/* Section 1: Personal Information */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-4 h-4 text-primary" />
+              </div>
               Personal Information
             </h4>
+            {formValidation.personalInfo && (
+              <Badge variant="default" className="bg-green-600">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
@@ -310,169 +420,196 @@ export function ApplicationForm({
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="emergency_contact_name">
-                  Emergency Contact Name
-                </Label>
-                <Input
-                  id="emergency_contact_name"
-                  name="emergency_contact_name"
-                  placeholder="Jane Doe"
-                />
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_name">
+                Emergency Contact Name
+              </Label>
+              <Input
+                id="emergency_contact_name"
+                name="emergency_contact_name"
+                placeholder="Jane Doe"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="emergency_contact_phone">
-                  Emergency Contact Phone
-                </Label>
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_phone">
+                Emergency Contact Phone
+              </Label>
+              <Input
+                id="emergency_contact_phone"
+                name="emergency_contact_phone"
+                type="tel"
+                placeholder="+256 700 000 000"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* Section 2: Employment & Move-in Details */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Briefcase className="w-4 h-4 text-primary" />
+              </div>
+              Employment & Move-in Details
+            </h4>
+            {formValidation.employmentInfo && (
+              <Badge variant="default" className="bg-green-600">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="employment_status">
+                Employment Status <span className="text-destructive">*</span>
+              </Label>
+              <select
+                id="employment_status"
+                name="employment_status"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              >
+                <option value="">Select status</option>
+                <option value="employed">Employed</option>
+                <option value="self_employed">Self Employed</option>
+                <option value="student">Student</option>
+                <option value="retired">Retired</option>
+                <option value="unemployed">Unemployed</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="monthly_income">
+                Monthly Income (UGX) <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="emergency_contact_phone"
-                  name="emergency_contact_phone"
-                  type="tel"
-                  placeholder="+256 700 000 000"
+                  id="monthly_income"
+                  name="monthly_income"
+                  type="number"
+                  placeholder="1000000"
+                  className="pl-10"
+                  required
                 />
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Step 2: Employment & Move-in Details */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-primary" />
-              Employment & Move-in Details
-            </h4>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employment_status">
-                  Employment Status <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  id="employment_status"
-                  name="employment_status"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            <div className="space-y-2">
+              <Label htmlFor="preferred_move_in_date">
+                Preferred Move-in Date <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="preferred_move_in_date"
+                  name="preferred_move_in_date"
+                  type="date"
+                  className="pl-10"
+                  min={new Date().toISOString().split('T')[0]}
                   required
-                >
-                  <option value="">Select status</option>
-                  <option value="employed">Employed</option>
-                  <option value="self_employed">Self Employed</option>
-                  <option value="student">Student</option>
-                  <option value="retired">Retired</option>
-                  <option value="unemployed">Unemployed</option>
-                </select>
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="monthly_income">
-                  Monthly Income (UGX) <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="monthly_income"
-                    name="monthly_income"
-                    type="number"
-                    placeholder="1000000"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="preferred_move_in_date">
-                  Preferred Move-in Date <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="preferred_move_in_date"
-                    name="preferred_move_in_date"
-                    type="date"
-                    className="pl-10"
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="number_of_occupants">
-                  Number of Occupants <span className="text-destructive">*</span>
-                </Label>
+            <div className="space-y-2">
+              <Label htmlFor="number_of_occupants">
+                Number of Occupants <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Users2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="number_of_occupants"
                   name="number_of_occupants"
                   type="number"
                   min="1"
                   defaultValue="1"
+                  className="pl-10"
                   required
                 />
               </div>
+            </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="has_pets">Will you have pets?</Label>
-                <select
-                  id="has_pets"
-                  name="has_pets"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
+            <div className="space-y-2">
+              <Label htmlFor="has_pets">Will you have pets?</Label>
+              <select
+                id="has_pets"
+                name="has_pets"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="reason_for_moving">
+                Reason for Moving (Optional)
+              </Label>
+              <Textarea
+                id="reason_for_moving"
+                name="reason_for_moving"
+                placeholder="Tell us why you're looking for a new place..."
+                rows={2}
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* Section 3: Document Upload */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileCheck className="w-4 h-4 text-primary" />
               </div>
+              Required Documents
+            </h4>
+            {formValidation.documents && (
+              <Badge variant="default" className="bg-green-600">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="reason_for_moving">
-                  Reason for Moving
-                </Label>
-                <Textarea
-                  id="reason_for_moving"
-                  name="reason_for_moving"
-                  placeholder="Tell us why you're looking for a new place..."
-                  rows={3}
-                />
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">Document Requirements:</p>
+                <ul className="space-y-1">
+                  <li>• Accepted formats: JPG, PNG, PDF</li>
+                  <li>• Maximum file size: 10MB per document</li>
+                  <li>• Documents must be clear and readable</li>
+                </ul>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Step 3: Document Upload */}
-        {step === 3 && (
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-primary" />
-              Required Documents
-            </h4>
-
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-700 dark:text-blue-300">
-                  <p className="font-medium mb-1">Document Requirements:</p>
-                  <ul className="space-y-1">
-                    <li>• Accepted formats: JPG, PNG, PDF</li>
-                    <li>• Maximum file size: 10MB per document</li>
-                    <li>• Documents must be clear and readable</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
+          <div className="grid gap-4 sm:grid-cols-2">
             {/* National ID/Passport Upload */}
             <div className="space-y-2">
               <Label>
                 National ID or Passport <span className="text-destructive">*</span>
               </Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+              <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                nationalIdFile ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'hover:border-primary/50'
+              }`}>
                 {nationalIdFile ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-                      <FileCheck className="w-6 h-6" />
-                      <span className="font-medium">{nationalIdFile.name}</span>
+                      <FileCheck className="w-5 h-5" />
+                      <span className="font-medium text-sm truncate">{nationalIdFile.name}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {(nationalIdFile.size / 1024 / 1024).toFixed(2)} MB
@@ -482,18 +619,18 @@ export function ApplicationForm({
                       variant="outline"
                       size="sm"
                       onClick={() => setNationalIdFile(null)}
+                      className="mt-2"
                     >
-                      <X className="w-4 h-4 mr-1" />
+                      <X className="w-3 h-3 mr-1" />
                       Remove
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                  <div className="space-y-2">
+                    <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
                     <div>
                       <label htmlFor="national_id" className="cursor-pointer">
-                        <span className="text-primary hover:underline">Click to upload</span>
-                        <span className="text-muted-foreground"> or drag and drop</span>
+                        <span className="text-primary hover:underline text-sm">Click to upload</span>
                       </label>
                       <input
                         id="national_id"
@@ -516,12 +653,14 @@ export function ApplicationForm({
               <Label>
                 Proof of Income <span className="text-destructive">*</span>
               </Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+              <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                incomeProofFile ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'hover:border-primary/50'
+              }`}>
                 {incomeProofFile ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-                      <FileCheck className="w-6 h-6" />
-                      <span className="font-medium">{incomeProofFile.name}</span>
+                      <FileCheck className="w-5 h-5" />
+                      <span className="font-medium text-sm truncate">{incomeProofFile.name}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {(incomeProofFile.size / 1024 / 1024).toFixed(2)} MB
@@ -531,18 +670,18 @@ export function ApplicationForm({
                       variant="outline"
                       size="sm"
                       onClick={() => setIncomeProofFile(null)}
+                      className="mt-2"
                     >
-                      <X className="w-4 h-4 mr-1" />
+                      <X className="w-3 h-3 mr-1" />
                       Remove
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                  <div className="space-y-2">
+                    <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
                     <div>
                       <label htmlFor="income_proof" className="cursor-pointer">
-                        <span className="text-primary hover:underline">Click to upload</span>
-                        <span className="text-muted-foreground"> or drag and drop</span>
+                        <span className="text-primary hover:underline text-sm">Click to upload</span>
                       </label>
                       <input
                         id="income_proof"
@@ -559,63 +698,83 @@ export function ApplicationForm({
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Additional Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="applicant_notes">
-                Additional Information (Optional)
-              </Label>
-              <Textarea
-                id="applicant_notes"
-                name="applicant_notes"
-                placeholder="Any additional information you'd like to share..."
-                rows={3}
-              />
+          {/* Additional Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="applicant_notes">
+              Additional Information (Optional)
+            </Label>
+            <Textarea
+              id="applicant_notes"
+              name="applicant_notes"
+              placeholder="Any additional information you'd like to share..."
+              rows={3}
+            />
+          </div>
+
+          {/* Helpful Tips */}
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mt-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-amber-700 dark:text-amber-300">
+                <p className="font-medium mb-1">Review Before Submitting:</p>
+                <ul className="space-y-1">
+                  <li>• Double-check all information for accuracy</li>
+                  <li>• Ensure uploaded documents are clear and complete</li>
+                  <li>• You'll receive a confirmation email after submission</li>
+                </ul>
+              </div>
             </div>
           </div>
-        )}
-
-        <Separator />
-
-        {/* Navigation Buttons */}
-        <div className="flex gap-3">
-          {step > 1 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-              disabled={isLoading}
-            >
-              Previous
-            </Button>
-          )}
-          
-          {step < totalSteps ? (
-            <Button
-              type="button"
-              onClick={() => setStep(step + 1)}
-              className="ml-auto"
-            >
-              Next
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              className="ml-auto gap-2"
-              disabled={isLoading || !nationalIdFile || !incomeProofFile}
-            >
-              {isLoading ? (
-                <>Processing...</>
-              ) : (
-                <>
-                  <FileText className="w-4 h-4" />
-                  Submit Application
-                </>
-              )}
-            </Button>
-          )}
         </div>
+
       </form>
+
+      {/* Sticky Footer with Submit Button */}
+      <div className="sticky bottom-0 bg-background border-t p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-sm text-muted-foreground hidden sm:block">
+            {completedSections === totalSections ? (
+              <span className="text-green-600 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                All sections complete!
+              </span>
+            ) : (
+              <span>
+                Complete all sections to submit
+              </span>
+            )}
+          </div>
+          
+          <Button
+            type="submit"
+            form="application-form"
+            className="gap-2 w-full sm:w-auto"
+            disabled={isLoading || !nationalIdFile || !incomeProofFile}
+            size="lg"
+            onClick={(e) => {
+              e.preventDefault()
+              const form = document.querySelector('form') as HTMLFormElement
+              if (form) {
+                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+              }
+            }}
+          >
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                Submit Application
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
     </>
   )
 }

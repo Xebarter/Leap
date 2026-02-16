@@ -32,9 +32,11 @@ import {
   Info,
   Loader2,
   AlertCircle,
-  Check
+  Check,
+  Sparkles
 } from "lucide-react"
 import { format, addDays } from "date-fns"
+import { TwoStepAuthWrapper } from "./two-step-auth-wrapper"
 
 interface ReservePropertyDialogProps {
   propertyId: string
@@ -71,53 +73,16 @@ export function ReservePropertyDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [reservationDetails, setReservationDetails] = useState<any>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
-  const [formStep, setFormStep] = useState(1)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [isFormValid, setIsFormValid] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
-  // Check if user is logged in
-  useEffect(() => {
-    const checkUser = async () => {
-      setIsCheckingAuth(true)
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setCurrentUser(user)
-      setIsCheckingAuth(false)
-      
-      // If not logged in when dialog opens, show auth prompt
-      if (!user && open) {
-        setShowAuthPrompt(true)
-      }
-    }
-    checkUser()
-  }, [open])
-
-  // Save reservation context for after authentication
-  const saveReservationContext = () => {
-    const context = {
-      propertyId,
-      propertyTitle,
-      propertyLocation,
-      monthlyRent,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem('pendingReservation', JSON.stringify(context))
-  }
-
-  // Handle authentication redirect
-  const handleAuthRedirect = (type: 'login' | 'signup') => {
-    saveReservationContext()
-    const returnUrl = encodeURIComponent(window.location.pathname)
-    router.push(`/auth/${type === 'login' ? 'login' : 'sign-up'}?redirect=${returnUrl}&action=reserve-property`)
+  // Handle successful authentication
+  const handleAuthSuccess = async (user: any) => {
+    setCurrentUser(user)
   }
 
   // Form validation
@@ -153,12 +118,6 @@ export function ReservePropertyDialog({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    
-    // Check if user is authenticated
-    if (!currentUser) {
-      setShowAuthPrompt(true)
-      return
-    }
 
     if (!termsAccepted) {
       toast({
@@ -266,103 +225,7 @@ export function ReservePropertyDialog({
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[650px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
-        {showAuthPrompt ? (
-          /* Authentication Required Prompt */
-          <div className="p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <DialogHeader className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center animate-in zoom-in duration-700">
-                <Shield className="w-8 h-8 text-primary animate-in zoom-in duration-500 delay-200" />
-              </div>
-              <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300">
-                <DialogTitle className="text-2xl font-bold">Sign in to Reserve Property</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Create a free tenant account or sign in to reserve this property
-                </DialogDescription>
-              </div>
-            </DialogHeader>
-
-            {/* Property Info */}
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 space-y-3 border border-primary/20">
-              <div className="flex items-start gap-3">
-                <div className="h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Home className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-lg">{propertyTitle}</div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="w-3 h-3" />
-                    {propertyLocation}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge variant="default" className="font-bold">
-                      UGX {formattedAmount}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">reservation fee (1 month rent)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Benefits */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Secure your property by:</p>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Paying 1 month rent as reservation fee
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Securing the property for 30 days
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Getting priority for move-in
-                </li>
-                <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Tracking your reservation status
-                </li>
-              </ul>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-500">
-              <Button 
-                onClick={() => handleAuthRedirect('signup')}
-                className="w-full gap-2 h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 shadow-lg hover:shadow-xl transition-all group"
-                size="lg"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Create Tenant Account</span>
-                <ArrowRight className="w-4 h-4 ml-auto group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button 
-                onClick={() => handleAuthRedirect('login')}
-                variant="outline"
-                className="w-full gap-2 h-12 text-base border-2 hover:bg-primary/5 hover:border-primary group"
-                size="lg"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Sign In to Existing Account</span>
-                <ArrowRight className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            </div>
-
-            <div className="text-center">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowAuthPrompt(false)
-                  setOpen(false)
-                }}
-                className="text-sm text-muted-foreground"
-              >
-                Maybe later
-              </Button>
-            </div>
-          </div>
-        ) : isSuccess ? (
+        {isSuccess ? (
           /* Success State */
           <div className="p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <DialogHeader className="text-center space-y-4">
@@ -458,18 +321,37 @@ export function ReservePropertyDialog({
           </div>
         ) : (
           /* Reservation Form */
-          <>
+          <TwoStepAuthWrapper
+            open={open}
+            onOpenChange={setOpen}
+            authTitle="Create Your Account to Reserve"
+            authDescription="Secure your dream property in just 30 seconds"
+            contentTitle="Reserve Property"
+            authBadge={
+              <Badge variant="secondary" className="gap-1">
+                <Sparkles className="w-3 h-3" />
+                Priority Access
+              </Badge>
+            }
+            onAuthSuccess={handleAuthSuccess}
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                  <Home className="w-6 h-6 text-primary" />
-                  Reserve Property
-                </DialogTitle>
-                <DialogDescription className="text-base mt-2">
-                  Secure this property by paying one month's rent upfront
-                </DialogDescription>
-              </DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                    <Home className="w-6 h-6 text-primary" />
+                    Reserve Property
+                  </DialogTitle>
+                  <DialogDescription className="text-base mt-2">
+                    Secure this property by paying one month's rent upfront
+                  </DialogDescription>
+                </DialogHeader>
+                <Badge variant="secondary" className="gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Step 2 of 2
+                </Badge>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -716,7 +598,7 @@ export function ReservePropertyDialog({
                 </Button>
               </div>
             </form>
-          </>
+          </TwoStepAuthWrapper>
         )}
       </DialogContent>
 

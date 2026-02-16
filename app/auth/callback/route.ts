@@ -14,13 +14,20 @@ export async function GET(request: Request) {
       // Fetch user profile to determine role
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_admin, user_type')
+        .select('is_admin, user_type, role')
         .eq('id', data.user.id)
         .single()
 
       // Redirect based on role
       const isAdmin = profile?.is_admin || data.user?.user_metadata?.is_admin
-      const redirectPath = isAdmin ? '/admin' : '/tenant'
+      const isLandlord = profile?.user_type === 'landlord' || profile?.role === 'landlord'
+      
+      let redirectPath = '/tenant' // default
+      if (isAdmin) {
+        redirectPath = '/admin'
+      } else if (isLandlord) {
+        redirectPath = '/landlord'
+      }
       
       return NextResponse.redirect(new URL(redirectPath, requestUrl.origin))
     }

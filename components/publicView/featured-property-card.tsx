@@ -94,7 +94,7 @@ export function FeaturedPropertyCard({ property }: FeaturedPropertyCardProps) {
             <div className="flex items-baseline justify-between">
               <div>
                 <span className="text-2xl font-bold text-amber-700">
-                  UGX {formatPrice(property.price_ugx)}
+                  UGX {formatPrice(property.price_ugx / 100)}
                 </span>
                 <span className="text-xs text-amber-600 ml-2">/ month</span>
               </div>

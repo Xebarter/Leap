@@ -21,6 +21,7 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [pendingVisit, setPendingVisit] = useState<any>(null)
+  const userType = searchParams.get('type') || 'tenant' // tenant or landlord
 
   // Check for pending visit and redirect URL
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function LoginPage() {
       // Fetch user profile to check role
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_admin, user_type')
+        .select('is_admin, user_type, role')
         .eq('id', data?.user?.id)
         .single()
 
@@ -77,7 +78,15 @@ export default function LoginPage() {
 
       // Role-based redirection
       const isAdmin = profile?.is_admin || data?.user?.user_metadata?.is_admin
-      router.push(isAdmin ? "/admin" : "/tenant")
+      const isLandlord = profile?.user_type === 'landlord' || profile?.role === 'landlord'
+      
+      if (isAdmin) {
+        router.push("/admin")
+      } else if (isLandlord) {
+        router.push("/landlord")
+      } else {
+        router.push("/tenant")
+      }
       router.refresh()
     } catch (err: any) {
       console.error('Login error:', err)
@@ -147,12 +156,19 @@ export default function LoginPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">
-              {pendingVisit ? 'Sign in to Continue' : 'Login to Leap'}
+              {pendingVisit 
+                ? 'Sign in to Continue' 
+                : userType === 'landlord' 
+                  ? 'Landlord Login' 
+                  : 'Tenant Login'
+              }
             </CardTitle>
             <CardDescription>
               {pendingVisit 
                 ? 'Enter your credentials to schedule your property visit'
-                : 'Enter your credentials to access your dashboard'
+                : userType === 'landlord'
+                  ? 'Sign in to manage your properties and tenants'
+                  : 'Sign in to find and rent your perfect home'
               }
             </CardDescription>
           </CardHeader>
@@ -236,13 +252,35 @@ export default function LoginPage() {
                 <Link 
                   href={pendingVisit 
                     ? `/auth/sign-up?redirect=${searchParams.get('redirect')}&action=schedule-visit`
-                    : "/auth/sign-up"
+                    : `/auth/sign-up${userType ? `?type=${userType}` : ''}`
                   } 
                   className="underline underline-offset-4"
                 >
                   Sign up
                 </Link>
               </div>
+              {userType === 'landlord' && (
+                <div className="text-center text-xs text-muted-foreground">
+                  Looking for a property?{" "}
+                  <Link 
+                    href="/auth/login?type=tenant" 
+                    className="underline underline-offset-4 text-primary"
+                  >
+                    Sign in as tenant
+                  </Link>
+                </div>
+              )}
+              {userType === 'tenant' && (
+                <div className="text-center text-xs text-muted-foreground">
+                  Have properties to rent?{" "}
+                  <Link 
+                    href="/auth/login?type=landlord" 
+                    className="underline underline-offset-4 text-primary"
+                  >
+                    Sign in as landlord
+                  </Link>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
