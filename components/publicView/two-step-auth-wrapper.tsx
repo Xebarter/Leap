@@ -20,7 +20,6 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 
 interface TwoStepAuthWrapperProps {
   /** The main content to show after authentication (Step 2) */
@@ -464,9 +463,6 @@ export function TwoStepAuthWrapper({
       ) : (
         // Step 2: Main Content
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-          <VisuallyHidden.Root>
-            <h2>{contentTitle}</h2>
-          </VisuallyHidden.Root>
           {children}
         </div>
       )}

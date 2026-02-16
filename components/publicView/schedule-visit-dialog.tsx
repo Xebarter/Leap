@@ -20,7 +20,6 @@ import { Calendar, Clock, User, Mail, Phone, MapPin, Sparkles, CheckCircle2, Log
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { TwoStepAuthWrapper } from "./two-step-auth-wrapper"
 
 interface ScheduleVisitDialogProps {
@@ -173,11 +172,10 @@ export function ScheduleVisitDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         {isSuccess ? (
           /* Success State */
-          <>
-            <VisuallyHidden.Root>
+          <div className="p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <DialogHeader className="sr-only">
               <DialogTitle>Visit Scheduled!</DialogTitle>
-            </VisuallyHidden.Root>
-            <div className="p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            </DialogHeader>
               <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
                 <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
@@ -214,8 +212,7 @@ export function ScheduleVisitDialog({
                   </p>
                 )}
               </div>
-            </div>
-          </>
+          </div>
         ) : (
           <TwoStepAuthWrapper
             open={open}

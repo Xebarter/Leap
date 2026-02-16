@@ -5,17 +5,17 @@ Build Error
 Parsing ecmascript source code failed
 
 ## Build Output
-./components/publicView/schedule-visit-dialog.tsx:638:5
+./components/publicView/schedule-visit-dialog.tsx:216:12
 Parsing ecmascript source code failed
-  636 |         )}
-  637 |       </DialogContent>
-> 638 |     </Dialog>
-      |     ^
-  639 |   )
-  640 | }
-  641 |
+  214 |               </div>
+  215 |             </div>
+> 216 |           </div>
+      |            ^^^^^
+  217 |         ) : (
+  218 |           <TwoStepAuthWrapper
+  219 |             open={open}
 
-Expression expected
+Unterminated regexp literal
 
 Import traces:
   Client Component Browser:
