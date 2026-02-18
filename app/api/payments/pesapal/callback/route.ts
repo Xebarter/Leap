@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     // If payment successful, update reservation status
     if (paymentStatus === 'completed' && transaction?.reservation_id) {
       const { error: reservationError } = await supabase
-        .from('reservations')
+        .from('property_reservations')
         .update({
           status: 'confirmed',
           payment_status: 'paid',

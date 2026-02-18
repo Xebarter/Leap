@@ -1,20 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Create a Supabase client with service role for storage operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!, // Use service role key
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
+    // Create a Supabase client with service role for storage operations
+    let supabaseAdmin
+    try {
+      supabaseAdmin = createAdminClient()
+    } catch (error: any) {
+      console.error('Failed to create admin client:', error)
+      return NextResponse.json(
+        { 
+          error: 'Storage service configuration error', 
+          details: error.message || 'Missing Supabase environment variables'
+        },
+        { status: 500 }
+      )
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const filePath = formData.get('filePath') as string
@@ -79,10 +82,13 @@ export async function POST(request: NextRequest) {
       url: signedUrlData.signedUrl,
       path: data.path
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload error:', error)
+
+    // Return real error details to help debug env/config issues
+    const message = error?.message || 'Upload failed'
     return NextResponse.json(
-      { error: 'Upload failed' },
+      { error: 'Upload failed', details: message },
       { status: 500 }
     )
   }

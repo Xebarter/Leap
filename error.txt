@@ -2,18 +2,20 @@
 Console Error
 
 ## Error Message
-Missing required fields
+fetch failed
 
 
-    at handlePayment (components/publicView/pesapal-payment-dialog.tsx:97:15)
+    at uploadFile (components/adminView/unit-type-image-upload.tsx:89:15)
+    at async (components/adminView/unit-type-image-upload.tsx:127:27)
+    at async handleFilesSelected (components/adminView/unit-type-image-upload.tsx:131:21)
 
 ## Code Frame
-   95 |
-   96 |       if (!response.ok) {
->  97 |         throw new Error(data.error || 'Failed to initiate payment')
-      |               ^
-   98 |       }
-   99 |
-  100 |       // Redirect to Pesapal payment page
+  87 |       if (!response.ok) {
+  88 |         const message = data?.error || data?.details || `Upload failed (${response.status})`
+> 89 |         throw new Error(message)
+     |               ^
+  90 |       }
+  91 |
+  92 |       return data?.url || null
 
 Next.js version: 16.0.10 (Turbopack)

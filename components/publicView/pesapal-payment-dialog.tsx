@@ -31,6 +31,7 @@ import {
   DollarSign,
   Users
 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { formatPrice } from "@/lib/utils"
 
 interface PesapalPaymentDialogProps {
@@ -201,6 +202,16 @@ export function PesapalPaymentDialog({
               </div>
             </CardContent>
           </Card>
+
+          {/* Processing Alert */}
+          {isProcessing && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <AlertDescription className="text-blue-900">
+                Redirecting to Pesapal... Please do not close this window.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Contact Information */}
           <div className="space-y-4">

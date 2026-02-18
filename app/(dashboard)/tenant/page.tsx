@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { BookingList } from "@/components/tenantView/booking-list"
+import { MyPropertiesOverview } from "@/components/tenantView/my-properties-overview"
 import { UpcomingPayments } from "@/components/tenantView/upcoming-payments"
 import { SavedProperties } from "@/components/tenantView/saved-properties"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, FileText, Wrench, Bell, AlertTriangle, TrendingUp, CheckCircle } from "lucide-react"
+import { AlertCircle, FileText, Wrench, Bell, AlertTriangle, TrendingUp, CheckCircle, Building2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -24,6 +25,7 @@ export default async function TenantDashboard() {
   // Fetch all relevant data in parallel
   const [
     { data: bookings, error: bookingsError },
+    { data: occupancies, error: occupanciesError },
     { data: tenantProfile },
     { data: userProfile },
     { data: pendingPayments },
@@ -55,6 +57,22 @@ export default async function TenantDashboard() {
       .or(`tenant_id.eq.${user.id},visitor_email.eq.${user.email}`)
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("property_occupancy_history")
+      .select(`
+        id,
+        property_id,
+        status,
+        start_date,
+        end_date,
+        months_paid,
+        amount_paid_ugx,
+        properties(id, title, location, image_url, price_ugx, property_type)
+      `)
+      .eq("tenant_id", user.id)
+      .in("status", ["active", "extended"])
+      .order("created_at", { ascending: false })
+      .limit(3),
     supabase.from("tenant_profiles").select("*").eq("user_id", user.id).single(),
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     supabase
@@ -131,6 +149,20 @@ export default async function TenantDashboard() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+            <Card className="border-none shadow-sm bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950 dark:to-indigo-900">
+              <CardContent className="pt-4 md:pt-6 pb-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                      <Building2 className="w-4 h-4 md:w-5 md:h-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                  </div>
+                  <p className="text-xs md:text-sm text-muted-foreground mb-1">My Properties</p>
+                  <p className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">{occupancies?.length || 0}</p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-none shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
               <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="text-center">
@@ -190,8 +222,14 @@ export default async function TenantDashboard() {
 
           {/* Main Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
-            {/* Left Column - Bookings and Payments */}
+            {/* Left Column - Properties, Bookings and Payments */}
             <div className="lg:col-span-2 space-y-6 md:space-y-8">
+              {/* My Properties */}
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">My Properties</h2>
+                <MyPropertiesOverview occupancies={occupancies || []} />
+              </div>
+
               {/* Active Bookings */}
               <div>
                 <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">My Bookings</h2>

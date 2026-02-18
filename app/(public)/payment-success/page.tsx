@@ -15,11 +15,32 @@ export default function PaymentSuccessPage() {
   const [countdown, setCountdown] = useState(10)
 
   useEffect(() => {
+    // Get user role from localStorage or make API call
+    const getUserDashboard = async () => {
+      try {
+        const response = await fetch('/api/profile')
+        const data = await response.json()
+        const isAdmin = data.profile?.is_admin
+        const isLandlord = data.profile?.user_type === 'landlord' || data.profile?.role === 'landlord'
+        
+        let dashboardPath = '/tenant/reservations' // default
+        if (isAdmin) {
+          dashboardPath = '/admin/reservations'
+        } else if (isLandlord) {
+          dashboardPath = '/landlord'
+        }
+        
+        return dashboardPath
+      } catch (error) {
+        return '/tenant/reservations' // fallback
+      }
+    }
+
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          router.push('/tenant/reservations')
+          getUserDashboard().then(path => router.push(path))
           return 0
         }
         return prev - 1
@@ -85,7 +106,24 @@ export default function PaymentSuccessPage() {
 
           <div className="pt-4 space-y-3">
             <Button
-              onClick={() => router.push('/tenant/reservations')}
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/profile')
+                  const data = await response.json()
+                  const isAdmin = data.profile?.is_admin
+                  const isLandlord = data.profile?.user_type === 'landlord' || data.profile?.role === 'landlord'
+                  
+                  if (isAdmin) {
+                    router.push('/admin/reservations')
+                  } else if (isLandlord) {
+                    router.push('/landlord')
+                  } else {
+                    router.push('/tenant/reservations')
+                  }
+                } catch (error) {
+                  router.push('/tenant/reservations')
+                }
+              }}
               className="w-full gap-2"
             >
               <span>View My Reservations</span>

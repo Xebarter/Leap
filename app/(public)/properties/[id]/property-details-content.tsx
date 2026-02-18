@@ -56,7 +56,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog'
 import { PropertyVideoPlayer } from '@/components/publicView/property-video-player'
 import { BuildingBlockVisualization, Unit } from '@/components/publicView/building-block-visualization'
 import { PropertyData, PropertyDetail, PropertyImage } from '@/lib/properties'
@@ -315,8 +315,10 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
     }
   }
 
-  // Format price
-  const formattedPrice = (property.price_ugx / 100).toLocaleString()
+  // Format price (price_ugx can be null or a string depending on DB type)
+  const priceUgx = Number((property as any).price_ugx)
+  const monthlyRentUgx = Number.isFinite(priceUgx) ? priceUgx : 0
+  const formattedPrice = Number.isFinite(priceUgx) ? (priceUgx / 100).toLocaleString() : '—'
 
   // Amenities
   const amenities = [
@@ -488,6 +490,9 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
               <div>
                 <p className="text-3xl sm:text-4xl font-bold text-primary animate-in fade-in slide-in-from-top-2 duration-700">{formattedPrice}</p>
                 <p className="text-sm text-muted-foreground">UGX / month</p>
+                {!Number.isFinite(priceUgx) && (
+                  <p className="text-xs text-muted-foreground mt-1">Price on request</p>
+                )}
                 {property.minimum_initial_months && (
                   <div className="flex items-center gap-1.5 mt-2 text-sm">
                     <Calendar className="w-3.5 h-3.5 text-primary" />
@@ -1016,7 +1021,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                         propertyId={property.id}
                         propertyTitle={property.title}
                         propertyLocation={property.location || ''}
-                        monthlyRent={property.price_ugx}
+                        monthlyRent={monthlyRentUgx}
                         propertyCode={propertyUniqueId}
                         triggerButton={
                           <Button 
@@ -1031,7 +1036,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                         }
                       />
                       
-                      {/* Make Payment Button */}
+                      {/* Rent Property Button */}
                       {property.minimum_initial_months && (
                         <Button 
                           onClick={() => setPaymentDialogOpen(true)}
@@ -1040,7 +1045,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
                           size="lg"
                         >
                           <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
-                          <span>Make Payment</span>
+                          <span>Rent Property</span>
                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       )}
@@ -1246,7 +1251,9 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
             if (e.key === 'Escape') setLightboxOpen(false)
           }}
         >
-          <DialogTitle className="sr-only">Property Image Gallery</DialogTitle>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Property Image Gallery</DialogTitle>
+          </DialogHeader>
           <div className="relative w-full h-[80vh]">
             {/* Close Button */}
             <Button
@@ -1336,9 +1343,9 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
       <PesapalPaymentDialog
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
-        amount={(property.price_ugx / 100) * (property.minimum_initial_months || 1)}
-        monthlyAmount={property.price_ugx / 100}
-        depositMonths={property.minimum_initial_months || 1}
+        amount={(monthlyRentUgx / 100) * (Number(property.minimum_initial_months) || 1)}
+        monthlyAmount={monthlyRentUgx / 100}
+        depositMonths={Number(property.minimum_initial_months) || 1}
         propertyCode={propertyUniqueId}
         propertyTitle={property.title}
         propertyId={property.id}

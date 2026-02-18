@@ -73,6 +73,7 @@ export function ReservePropertyDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [reservationDetails, setReservationDetails] = useState<any>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
@@ -84,6 +85,26 @@ export function ReservePropertyDialog({
   const handleAuthSuccess = async (user: any) => {
     setCurrentUser(user)
   }
+
+  // Fetch user profile when user is authenticated
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!currentUser) return
+
+      const supabase = createClient()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (profile) {
+        setUserProfile(profile)
+      }
+    }
+
+    fetchUserProfile()
+  }, [currentUser])
 
   // Form validation
   const validateField = (name: string, value: string) => {
@@ -257,6 +278,11 @@ export function ReservePropertyDialog({
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[650px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            {isSuccess ? "Reservation Successful" : "Reserve Property"}
+          </DialogTitle>
+        </DialogHeader>
         {isSuccess ? (
           /* Success State */
           <div className="p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -448,6 +474,7 @@ export function ReservePropertyDialog({
                         name="full_name"
                         type="text"
                         placeholder="John Doe"
+                        defaultValue={userProfile?.full_name || currentUser?.user_metadata?.full_name || ""}
                         className="pl-10"
                         required
                       />
@@ -466,6 +493,7 @@ export function ReservePropertyDialog({
                           name="contact_phone"
                           type="tel"
                           placeholder="+256 700 000 000"
+                          defaultValue={userProfile?.phone_number || ""}
                           className={`pl-10 ${formErrors.contact_phone ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                           onChange={(e) => validateField('contact_phone', e.target.value)}
                           required
@@ -491,7 +519,7 @@ export function ReservePropertyDialog({
                           type="email"
                           placeholder="your.email@example.com"
                           className={`pl-10 ${formErrors.contact_email ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                          defaultValue={currentUser?.email}
+                          defaultValue={currentUser?.email || ""}
                           onChange={(e) => validateField('contact_email', e.target.value)}
                           required
                         />

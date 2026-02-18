@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { PropertyDetail } from "@/lib/properties";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,9 @@ export function PropertyDetailsShowcase({ details }: PropertyDetailsShowcaseProp
       {/* Image Lightbox Dialog */}
       <Dialog open={selectedImageIndex !== null} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-5xl w-full p-0 bg-black/95 border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Property Image Gallery</DialogTitle>
+          </DialogHeader>
           <div className="relative w-full h-[80vh]">
             {/* Close Button */}
             <Button

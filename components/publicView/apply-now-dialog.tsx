@@ -43,6 +43,7 @@ export function ApplyNowDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [applicationNumber, setApplicationNumber] = useState("")
   
   // File states
@@ -57,6 +58,26 @@ export function ApplyNowDialog({
   const handleAuthSuccess = async (user: any) => {
     setCurrentUser(user)
   }
+
+  // Fetch user profile when user is authenticated
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!currentUser) return
+
+      const supabase = createClient()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (profile) {
+        setUserProfile(profile)
+      }
+    }
+
+    fetchUserProfile()
+  }, [currentUser])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -107,6 +128,7 @@ export function ApplyNowDialog({
               propertyTitle={propertyTitle}
               propertyLocation={propertyLocation}
               currentUser={currentUser}
+              userProfile={userProfile}
               isLoading={isLoading}
               setIsLoading={setIsLoading}
               setIsSuccess={setIsSuccess}

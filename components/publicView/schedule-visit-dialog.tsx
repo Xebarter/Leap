@@ -47,6 +47,7 @@ export function ScheduleVisitDialog({
   const [isSuccess, setIsSuccess] = useState(false)
   const [minDate, setMinDate] = useState("")
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [scheduledDetails, setScheduledDetails] = useState<{ date: string; time: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState("")
   const [timeConstraints, setTimeConstraints] = useState({ min: "08:00", max: "18:00" })
@@ -61,6 +62,26 @@ export function ScheduleVisitDialog({
     tomorrow.setDate(tomorrow.getDate() + 1)
     setMinDate(tomorrow.toISOString().split("T")[0])
   }, [])
+
+  // Fetch user profile when user is authenticated
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!currentUser) return
+
+      const supabase = createClient()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (profile) {
+        setUserProfile(profile)
+      }
+    }
+
+    fetchUserProfile()
+  }, [currentUser])
 
   // Update time constraints based on selected date (Sunday vs other days)
   useEffect(() => {
@@ -343,7 +364,7 @@ export function ScheduleVisitDialog({
                       id="visitor_name"
                       name="visitor_name"
                       placeholder="John Doe"
-                      defaultValue={currentUser?.user_metadata?.full_name || ""}
+                      defaultValue={userProfile?.full_name || currentUser?.user_metadata?.full_name || ""}
                       className="pl-10"
                       required
                     />
@@ -379,6 +400,7 @@ export function ScheduleVisitDialog({
                       name="visitor_phone"
                       type="tel"
                       placeholder="+256 700 000 000"
+                      defaultValue={userProfile?.phone_number || ""}
                       className="pl-10"
                       required
                     />

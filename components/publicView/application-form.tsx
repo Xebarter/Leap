@@ -33,6 +33,7 @@ export function ApplicationForm({
   propertyTitle,
   propertyLocation,
   currentUser,
+  userProfile,
   isLoading,
   setIsLoading,
   setIsSuccess,
@@ -366,7 +367,7 @@ export function ApplicationForm({
                 <Input
                   id="full_name"
                   name="full_name"
-                  defaultValue={currentUser?.user_metadata?.full_name}
+                  defaultValue={userProfile?.full_name || currentUser?.user_metadata?.full_name || ""}
                   placeholder="John Doe"
                   required
                 />
@@ -383,6 +384,7 @@ export function ApplicationForm({
                     name="phone_number"
                     type="tel"
                     placeholder="+256 700 000 000"
+                    defaultValue={userProfile?.phone_number || currentUser?.user_metadata?.phone_number || ""}
                     className="pl-10"
                     required
                   />
@@ -399,7 +401,7 @@ export function ApplicationForm({
                     id="email"
                     name="email"
                     type="email"
-                    defaultValue={currentUser?.email}
+                    defaultValue={currentUser?.email || ""}
                     placeholder="john@example.com"
                     className="pl-10"
                     required

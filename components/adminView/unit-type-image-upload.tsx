@@ -74,21 +74,63 @@ export function UnitTypeImageUpload({
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const filePath = `unit-types/${unitType}/${timestamp}-${sanitizedName}`
       formData.append('filePath', filePath)
+      // Use the same bucket used elsewhere for property/unit images
+      formData.append('bucket', 'property-images')
+      
+      console.log('🔄 Uploading file:', { 
+        name: file.name, 
+        size: file.size, 
+        type: file.type,
+        filePath 
+      })
       
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
+
+      console.log('📡 Upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      })
+
+      let data = null
+      const contentType = response.headers.get('content-type')
       
-      if (!response.ok) {
-        throw new Error('Upload failed')
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json().catch(err => {
+          console.error('❌ Failed to parse JSON response:', err)
+          return null
+        })
+      } else {
+        const text = await response.text()
+        console.error('❌ Non-JSON response received:', text.substring(0, 500))
       }
-      
-      const data = await response.json()
-      return data.url || null
-    } catch (error) {
-      console.error('Error uploading file:', error)
-      return null
+
+      console.log('📦 Parsed data:', data)
+
+      if (!response.ok) {
+        const message = data?.error || data?.details || `Upload failed (${response.status}): ${response.statusText}`
+        console.error('❌ Upload failed:', message)
+        throw new Error(message)
+      }
+
+      if (!data?.url) {
+        console.error('❌ No URL in response:', data)
+        throw new Error('Upload succeeded but no URL returned')
+      }
+
+      console.log('✅ Upload successful:', data.url)
+      return data.url
+    } catch (error: any) {
+      console.error('❌ Error uploading file:', {
+        message: error.message,
+        stack: error.stack,
+        error
+      })
+      throw error // Re-throw instead of returning null so we can see the error
     }
   }
 
@@ -120,23 +162,37 @@ export function UnitTypeImageUpload({
 
     // Upload files concurrently
     const uploadPromises = filesToUpload.map(async (file, index) => {
-      const uploadedUrl = await uploadFile(file)
-      return { index, url: uploadedUrl }
+      try {
+        const uploadedUrl = await uploadFile(file)
+        return { index, url: uploadedUrl, error: null }
+      } catch (error: any) {
+        console.error(`Failed to upload ${file.name}:`, error)
+        return { index, url: null, error: error.message }
+      }
     })
 
     const results = await Promise.all(uploadPromises)
 
     // Update images with actual URLs
     const updatedImages = [...images]
-    results.forEach(({ index, url }) => {
+    const errors: string[] = []
+    
+    results.forEach(({ index, url, error }) => {
       if (url) {
         updatedImages.push({
           ...newImages[index],
           url,
           isUploading: false
         })
+      } else if (error) {
+        errors.push(`${filesToUpload[index].name}: ${error}`)
       }
     })
+
+    // Show errors if any
+    if (errors.length > 0) {
+      alert(`Upload errors:\n${errors.join('\n')}`)
+    }
 
     // Remove any failed uploads and update
     const successfulImages = updatedImages.filter(img => !img.isUploading || img.url.startsWith('http'))

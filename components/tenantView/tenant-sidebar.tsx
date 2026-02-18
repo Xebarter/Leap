@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Settings, LogOut, Home, FileText, Calendar, CreditCard, Wrench, Bell, MessageSquare, Search } from 'lucide-react'
+import { Settings, LogOut, Home, FileText, Calendar, CreditCard, Wrench, Bell, MessageSquare, Search, Building2 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: () => void }) {
@@ -29,6 +29,17 @@ export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: ()
           <Link href="/tenant">
             <Home className="w-4 h-4" />
             Dashboard
+          </Link>
+        </Button>
+        <Button 
+          asChild 
+          variant={isActive('/tenant/properties') ? 'secondary' : 'ghost'} 
+          className="w-full justify-start gap-3"
+          onClick={onNavigate}
+        >
+          <Link href="/tenant/properties">
+            <Building2 className="w-4 h-4" />
+            My Properties
           </Link>
         </Button>
         <Button 
