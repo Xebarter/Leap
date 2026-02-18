@@ -103,15 +103,6 @@ export function ReservePropertyDialog({
       }
     }
     
-    if (name === 'move_in_date') {
-      const selectedDate = new Date(value)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (selectedDate < today) {
-        errors.move_in_date = 'Move-in date cannot be in the past'
-      }
-    }
-    
     setFormErrors(prev => ({ ...prev, ...errors }))
     return Object.keys(errors).length === 0
   }
@@ -136,16 +127,14 @@ export function ReservePropertyDialog({
     // Get form values
     const contactPhone = formData.get("contact_phone") as string
     const contactEmail = formData.get("contact_email") as string
-    const moveInDate = formData.get("move_in_date") as string
     const notes = formData.get("notes") as string
-    const paymentMethod = formData.get("payment_method") as string
+    const paymentMethod = "pesapal" // Default to Pesapal payment gateway
 
     // Validate all fields
     const isPhoneValid = validateField('contact_phone', contactPhone)
     const isEmailValid = validateField('contact_email', contactEmail)
-    const isDateValid = validateField('move_in_date', moveInDate)
 
-    if (!isPhoneValid || !isEmailValid || !isDateValid) {
+    if (!isPhoneValid || !isEmailValid) {
       setIsLoading(false)
       toast({
         title: "Validation Error",
@@ -167,7 +156,6 @@ export function ReservePropertyDialog({
       payment_status: "pending",
       status: "pending",
       expires_at: expiresAt.toISOString(),
-      move_in_date: moveInDate,
       contact_phone: contactPhone,
       contact_email: contactEmail,
       notes: notes || null,
@@ -181,10 +169,9 @@ export function ReservePropertyDialog({
       .select()
       .single()
 
-    setIsLoading(false)
-
     if (error) {
       console.error("Error creating reservation:", error)
+      setIsLoading(false)
       toast({
         title: "Reservation Failed",
         description: error.message || "Failed to create reservation. Please try again.",
@@ -193,21 +180,66 @@ export function ReservePropertyDialog({
       return
     }
 
-    // Success!
-    setReservationDetails({
-      ...data,
-      reservationId: data.id,
-      reservationNumber: data.reservation_number,
-      expiresAt: format(new Date(data.expires_at), "PPP"),
-      amount: data.reservation_amount,
-      paymentMethod: data.payment_method,
-    })
-    setIsSuccess(true)
+    // Initiate Pesapal payment
+    try {
+      // Extract name from contact info or user metadata
+      const fullName = formData.get("full_name") as string || contactEmail.split('@')[0]
+      const nameParts = fullName.trim().split(' ')
+      const firstName = nameParts[0] || contactEmail.split('@')[0]
+      const lastName = nameParts.slice(1).join(' ') || 'User'
+      
+      const paymentPayload = {
+        amount: monthlyRent / 100, // Convert cents to UGX
+        email: contactEmail,
+        phoneNumber: contactPhone,
+        firstName: firstName,
+        lastName: lastName,
+        propertyCode: propertyCode,
+        description: `Reservation for ${propertyTitle}`,
+        reservationId: data.id,
+        propertyId: propertyId,
+      }
+      
+      console.log('Payment payload:', paymentPayload)
+      
+      const paymentResponse = await fetch('/api/payments/pesapal/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentPayload),
+      })
 
-    toast({
-      title: "Reservation Created! 🎉",
-      description: `Your reservation number is ${data.reservation_number}`,
-    })
+      const paymentData = await paymentResponse.json()
+
+      if (!paymentResponse.ok || !paymentData.success) {
+        throw new Error(paymentData.error || 'Payment initiation failed')
+      }
+
+      console.log('Payment initiated successfully:', paymentData)
+
+      // Redirect to Pesapal payment page
+      if (paymentData.redirectUrl) {
+        window.location.href = paymentData.redirectUrl
+      } else {
+        throw new Error('No redirect URL received from payment gateway')
+      }
+    } catch (paymentError) {
+      console.error('Payment initiation error:', paymentError)
+      setIsLoading(false)
+      
+      toast({
+        title: "Payment Initiation Failed",
+        description: paymentError instanceof Error ? paymentError.message : "Failed to initiate payment. Please try again.",
+        variant: "destructive",
+      })
+      
+      // Optionally delete the reservation if payment fails
+      await supabase
+        .from("property_reservations")
+        .delete()
+        .eq('id', data.id)
+    }
   }
 
   // Format price
@@ -268,17 +300,6 @@ export function ReservePropertyDialog({
                   </div>
                 </div>
 
-                {reservationDetails.paymentMethod === 'mobile_money' && (
-                  <Button 
-                    onClick={() => setShowPaymentDialog(true)}
-                    className="w-full gap-2 animate-pulse hover:animate-none bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600"
-                    size="lg"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    Pay with Mobile Money
-                    <ArrowRight className="w-4 h-4 ml-auto" />
-                  </Button>
-                )}
               </div>
             )}
 
@@ -292,7 +313,7 @@ export function ReservePropertyDialog({
                   <ul className="space-y-2 text-blue-700 dark:text-blue-300">
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <span>Complete payment using Mobile Money if you selected it</span>
+                      <span>Complete your payment on the Pesapal payment page</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -335,26 +356,27 @@ export function ReservePropertyDialog({
             }
             onAuthSuccess={handleAuthSuccess}
           >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
-              <div className="flex items-center justify-between">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                    <Home className="w-6 h-6 text-primary" />
-                    Reserve Property
-                  </DialogTitle>
-                  <DialogDescription className="text-base mt-2">
-                    Secure this property by paying one month's rent upfront
-                  </DialogDescription>
-                </DialogHeader>
-                <Badge variant="secondary" className="gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Step 2 of 2
-                </Badge>
+            <form onSubmit={handleSubmit} className="flex flex-col h-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                      <Home className="w-6 h-6 text-primary" />
+                      Reserve Property
+                    </DialogTitle>
+                    <DialogDescription className="text-base mt-2">
+                      Secure this property by paying one month's rent upfront
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Badge variant="secondary" className="gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Step 2 of 2
+                  </Badge>
+                </div>
               </div>
-            </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div className="p-6 space-y-6">
               {/* Property Summary */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -414,111 +436,101 @@ export function ReservePropertyDialog({
                   Contact Information
                 </h4>
                 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="contact_phone">
-                      Phone Number <span className="text-destructive">*</span>
+                    <Label htmlFor="full_name">
+                      Full Name <span className="text-destructive">*</span>
                     </Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="contact_phone"
-                        name="contact_phone"
-                        type="tel"
-                        placeholder="+256 700 000 000"
-                        className={`pl-10 ${formErrors.contact_phone ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                        onChange={(e) => validateField('contact_phone', e.target.value)}
+                        id="full_name"
+                        name="full_name"
+                        type="text"
+                        placeholder="John Doe"
+                        className="pl-10"
                         required
                       />
-                      {formErrors.contact_phone && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-destructive">
-                          <AlertCircle className="w-3 h-3" />
-                          {formErrors.contact_phone}
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_email">
-                      Email Address <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="contact_email"
-                        name="contact_email"
-                        type="email"
-                        placeholder="your.email@example.com"
-                        className={`pl-10 ${formErrors.contact_email ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                        defaultValue={currentUser?.email}
-                        onChange={(e) => validateField('contact_email', e.target.value)}
-                        required
-                      />
-                      {formErrors.contact_email && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-destructive">
-                          <AlertCircle className="w-3 h-3" />
-                          {formErrors.contact_email}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="move_in_date">
-                    Intended Move-in Date <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="move_in_date"
-                      name="move_in_date"
-                      type="date"
-                      className={`pl-10 ${formErrors.move_in_date ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                      min={format(new Date(), "yyyy-MM-dd")}
-                      onChange={(e) => validateField('move_in_date', e.target.value)}
-                      required
-                    />
-                    {formErrors.move_in_date && (
-                      <div className="flex items-center gap-1 mt-1 text-xs text-destructive">
-                        <AlertCircle className="w-3 h-3" />
-                        {formErrors.move_in_date}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_phone">
+                        Phone Number <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="contact_phone"
+                          name="contact_phone"
+                          type="tel"
+                          placeholder="+256 700 000 000"
+                          className={`pl-10 ${formErrors.contact_phone ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                          onChange={(e) => validateField('contact_phone', e.target.value)}
+                          required
+                        />
+                        {formErrors.contact_phone && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-destructive">
+                            <AlertCircle className="w-3 h-3" />
+                            {formErrors.contact_phone}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_email">
+                        Email Address <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="contact_email"
+                          name="contact_email"
+                          type="email"
+                          placeholder="your.email@example.com"
+                          className={`pl-10 ${formErrors.contact_email ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                          defaultValue={currentUser?.email}
+                          onChange={(e) => validateField('contact_email', e.target.value)}
+                          required
+                        />
+                        {formErrors.contact_email && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-destructive">
+                            <AlertCircle className="w-3 h-3" />
+                            {formErrors.contact_email}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-sm flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-primary" />
-                  Payment Method
-                </h4>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="payment_method">
-                    Preferred Payment Method <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <select
-                      id="payment_method"
-                      name="payment_method"
-                      className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-                      required
-                    >
-                      <option value="">Choose your payment method</option>
-                      <option value="mobile_money">📱 Mobile Money (MTN/Airtel)</option>
-                      <option value="bank_transfer">🏦 Bank Transfer</option>
-                      <option value="card">💳 Credit/Debit Card</option>
-                    </select>
+              {/* Payment Information */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-950/10 border-2 border-green-300 dark:border-green-700 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-5 h-5 text-white" />
                   </div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Info className="w-3.5 h-3.5" />
-                    <span>Mobile Money is recommended for instant payment</span>
-                  </p>
+                  <div className="text-sm flex-1">
+                    <p className="font-bold text-base text-green-900 dark:text-green-100 mb-2">
+                      Secure Payment via Pesapal
+                    </p>
+                    <p className="text-green-700 dark:text-green-300 text-sm leading-relaxed mb-2">
+                      After submitting this form, you'll be redirected to our secure payment partner Pesapal to complete your payment.
+                    </p>
+                    <ul className="text-xs text-green-700 dark:text-green-300 space-y-1">
+                      <li className="flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        <span>Card Payment (Visa/Mastercard)</span>
+                      </li>
+                      <li className="flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        <span>Mobile Money (MTN/Airtel)</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 
@@ -596,6 +608,7 @@ export function ReservePropertyDialog({
                     </>
                   )}
                 </Button>
+              </div>
               </div>
             </form>
           </TwoStepAuthWrapper>

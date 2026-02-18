@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { paymentService } from '@/lib/payments'
 import type { PaymentRequest } from '@/lib/payments'
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     const response = await paymentService.processPayment(paymentRequest)
 
     if (response.success) {
-      // Save transaction to database
+      // Save transaction to database using admin client to bypass RLS
       const saveResult = await paymentService.saveTransaction({
         transaction_id: response.transactionId,
         reservation_id: reservationId,
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
         description: paymentRequest.description,
         phone_number: phoneNumber,
         email: paymentRequest.email,
-      })
+      }, true)
 
       if (!saveResult.success) {
         console.error('Failed to save transaction:', saveResult.error)

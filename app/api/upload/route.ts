@@ -60,14 +60,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get public URL
-    const { data: urlData } = supabaseAdmin.storage
+    // Create a signed URL that's valid for 10 years (for permanent storage)
+    // This bypasses RLS and allows secure access to the file
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
       .from(bucket)
-      .getPublicUrl(filePath)
+      .createSignedUrl(filePath, 315360000) // 10 years in seconds
+
+    if (signedUrlError) {
+      console.error('Error creating signed URL:', signedUrlError)
+      return NextResponse.json(
+        { error: 'Failed to create signed URL', details: signedUrlError.message },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
+      url: signedUrlData.signedUrl,
       path: data.path
     })
   } catch (error) {

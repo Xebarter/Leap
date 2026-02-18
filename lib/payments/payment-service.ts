@@ -102,10 +102,13 @@ export class PaymentService {
    * Save payment transaction to database
    */
   async saveTransaction(
-    transaction: Omit<PaymentTransaction, 'id' | 'created_at' | 'updated_at'>
+    transaction: Omit<PaymentTransaction, 'id' | 'created_at' | 'updated_at'>,
+    useAdminClient: boolean = false
   ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
     try {
-      const supabase = await createClient()
+      const supabase = useAdminClient 
+        ? (await import('@/lib/supabase/admin')).createAdminClient()
+        : await createClient()
 
       const { data, error } = await supabase
         .from('payment_transactions')
@@ -116,6 +119,8 @@ export class PaymentService {
           reservation_id: transaction.reservation_id,
           tenant_id: transaction.tenant_id,
           property_code: transaction.property_code,
+          property_id: transaction.property_id,
+          months_paid: transaction.months_paid,
           amount_paid_ugx: transaction.amount_paid_ugx,
           currency: transaction.currency,
           payment_date: transaction.payment_date.toISOString(),

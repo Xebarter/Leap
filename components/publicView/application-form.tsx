@@ -54,7 +54,7 @@ export function ApplicationForm({
     documents: false
   })
 
-  // Track form completion for better UX
+  // Track form completion for better UX - only required fields count
   const updateValidation = () => {
     const form = document.querySelector('form') as HTMLFormElement
     if (!form) return
@@ -63,14 +63,14 @@ export function ApplicationForm({
     
     setFormValidation({
       personalInfo: !!(
-        formData.get('full_name') && 
-        formData.get('phone_number') && 
-        formData.get('email') &&
-        formData.get('current_address')
+        formData.get('full_name')?.toString().trim() && 
+        formData.get('phone_number')?.toString().trim() && 
+        formData.get('email')?.toString().trim() &&
+        formData.get('current_address')?.toString().trim()
       ),
       employmentInfo: !!(
         formData.get('employment_status') &&
-        formData.get('monthly_income') &&
+        formData.get('monthly_income')?.toString().trim() &&
         formData.get('preferred_move_in_date')
       ),
       documents: !!(nationalIdFile && incomeProofFile)
@@ -729,52 +729,43 @@ export function ApplicationForm({
           </div>
         </div>
 
-      </form>
-
-      {/* Sticky Footer with Submit Button */}
-      <div className="sticky bottom-0 bg-background border-t p-4 sm:p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-sm text-muted-foreground hidden sm:block">
-            {completedSections === totalSections ? (
-              <span className="text-green-600 font-medium flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" />
-                All sections complete!
-              </span>
-            ) : (
-              <span>
-                Complete all sections to submit
-              </span>
-            )}
+        {/* Sticky Footer with Submit Button - Inside Form */}
+        <div className="sticky bottom-0 bg-background border-t p-4 sm:p-6 -mx-4 sm:-mx-6 -mb-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground hidden sm:block">
+              {completedSections === totalSections ? (
+                <span className="text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  All sections complete!
+                </span>
+              ) : (
+                <span>
+                  Complete all sections to submit
+                </span>
+              )}
+            </div>
+            
+            <Button
+              type="submit"
+              className="gap-2 w-full sm:w-auto"
+              disabled={isLoading || !nationalIdFile || !incomeProofFile}
+              size="lg"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4" />
+                  Submit Application
+                </>
+              )}
+            </Button>
           </div>
-          
-          <Button
-            type="submit"
-            form="application-form"
-            className="gap-2 w-full sm:w-auto"
-            disabled={isLoading || !nationalIdFile || !incomeProofFile}
-            size="lg"
-            onClick={(e) => {
-              e.preventDefault()
-              const form = document.querySelector('form') as HTMLFormElement
-              if (form) {
-                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-              }
-            }}
-          >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <FileText className="w-4 h-4" />
-                Submit Application
-              </>
-            )}
-          </Button>
         </div>
-      </div>
+      </form>
     </>
   )
 }

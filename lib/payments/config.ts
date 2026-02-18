@@ -53,6 +53,15 @@ export const PAYMENT_CONFIG = {
     callbackUrl: env('MTN_CALLBACK_URL', `${appUrl()}/api/payments/webhook/mtn`),
   },
 
+  // Pesapal Configuration
+  pesapal: {
+    consumerKey: env('PESAPAL_CONSUMER_KEY'),
+    consumerSecret: env('PESAPAL_CONSUMER_SECRET'),
+    environment: env('PESAPAL_ENVIRONMENT', 'sandbox'), // 'sandbox' or 'live'
+    callbackUrl: env('PESAPAL_CALLBACK_URL', `${appUrl()}/api/payments/pesapal/callback`),
+    ipnUrl: env('PESAPAL_IPN_URL', `${appUrl()}/api/payments/pesapal/ipn`),
+  },
+
   // General payment settings
   general: {
     defaultCurrency: env('PAYMENT_DEFAULT_CURRENCY', 'UGX'),

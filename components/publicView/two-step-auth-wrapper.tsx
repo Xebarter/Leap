@@ -83,6 +83,10 @@ export function TwoStepAuthWrapper({
       if (user && skipAuthIfLoggedIn) {
         // User is already logged in, skip to step 2
         setCurrentStep(2)
+        // Call the success callback for already logged in users
+        if (onAuthSuccess) {
+          onAuthSuccess(user)
+        }
       } else if (!user) {
         // User not logged in, show step 1
         setCurrentStep(1)
@@ -92,6 +96,7 @@ export function TwoStepAuthWrapper({
     }
     
     checkAuth()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, skipAuthIfLoggedIn])
 
   // Reset state when dialog closes
@@ -462,7 +467,7 @@ export function TwoStepAuthWrapper({
         </div>
       ) : (
         // Step 2: Main Content
-        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col h-full overflow-hidden">
           {children}
         </div>
       )}

@@ -1,33 +1,19 @@
 ## Error Type
-Build Error
+Console Error
 
 ## Error Message
-Parsing ecmascript source code failed
+Missing required fields
 
-## Build Output
-./components/publicView/schedule-visit-dialog.tsx:216:12
-Parsing ecmascript source code failed
-  214 |               </div>
-  215 |             </div>
-> 216 |           </div>
-      |            ^^^^^
-  217 |         ) : (
-  218 |           <TwoStepAuthWrapper
-  219 |             open={open}
 
-Unterminated regexp literal
+    at handlePayment (components/publicView/pesapal-payment-dialog.tsx:97:15)
 
-Import traces:
-  Client Component Browser:
-    ./components/publicView/schedule-visit-dialog.tsx [Client Component Browser]
-    ./app/(public)/properties/[id]/property-details-content.tsx [Client Component Browser]
-    ./app/(public)/properties/[id]/property-details-content.tsx [Server Component]
-    ./app/(public)/properties/[id]/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./components/publicView/schedule-visit-dialog.tsx [Client Component SSR]
-    ./app/(public)/properties/[id]/property-details-content.tsx [Client Component SSR]
-    ./app/(public)/properties/[id]/property-details-content.tsx [Server Component]
-    ./app/(public)/properties/[id]/page.tsx [Server Component]
+## Code Frame
+   95 |
+   96 |       if (!response.ok) {
+>  97 |         throw new Error(data.error || 'Failed to initiate payment')
+      |               ^
+   98 |       }
+   99 |
+  100 |       // Redirect to Pesapal payment page
 
 Next.js version: 16.0.10 (Turbopack)

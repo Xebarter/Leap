@@ -20,6 +20,16 @@ function getSupabaseAdmin(): SupabaseClient {
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: {
+      fetch: (url, options = {}) => {
+        return fetch(url, {
+          ...options,
+          // Add keep-alive and timeout settings to prevent ECONNRESET
+          keepalive: true,
+          signal: AbortSignal.timeout(30000), // 30 second timeout
+        })
+      },
+    },
   })
 
   return supabaseAdmin
@@ -113,6 +123,40 @@ export interface PropertyData {
   property_images?: PropertyImage[]
 }
 
+// Helper function to retry failed queries
+async function retryQuery<T>(
+  queryFn: () => Promise<{ data: T | null; error: any }>,
+  retries: number = 3,
+  delay: number = 1000
+): Promise<{ data: T | null; error: any }> {
+  let lastError: any
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await queryFn()
+      
+      // If successful or error is not a connection error, return immediately
+      if (!result.error || !result.error.message?.includes('fetch failed')) {
+        return result
+      }
+      
+      lastError = result.error
+      
+      // Wait before retrying (exponential backoff)
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)))
+      }
+    } catch (err) {
+      lastError = err
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)))
+      }
+    }
+  }
+  
+  return { data: null, error: lastError }
+}
+
 export async function getPublicProperties(): Promise<PropertyData[]> {
   try {
     console.log('getPublicProperties: Starting...')
@@ -125,48 +169,50 @@ export async function getPublicProperties(): Promise<PropertyData[]> {
     // Note: property_code and google_maps_embed_url may not exist in older databases - they're optional
     // First try without property_code to ensure backwards compatibility
     // Only show properties that are not occupied (is_occupied = false or null)
-    const { data, error } = await supabase
-      .from('properties')
-      .select(`
-        id,
-        title,
-        location,
-        price_ugx,
-        image_url,
-        category,
-        bedrooms,
-        bathrooms,
-        description,
-        video_url,
-        rating,
-        reviews_count,
-        is_active,
-        created_at,
-        updated_at,
-        block_id,
-        total_floors,
-        units_config,
-        amenities,
-        minimum_initial_months,
-        property_blocks (
+    const { data, error } = await retryQuery(() => 
+      supabase
+        .from('properties')
+        .select(`
           id,
-          name,
+          title,
           location,
-          total_floors,
-          total_units
-        ),
-        property_images (
-          id,
-          property_id,
+          price_ugx,
           image_url,
-          area,
-          display_order,
-          is_primary
-        )
-      `)
-      .eq('is_active', true)
-      .or('is_occupied.is.null,is_occupied.eq.false')
-      .order('created_at', { ascending: false })
+          category,
+          bedrooms,
+          bathrooms,
+          description,
+          video_url,
+          rating,
+          reviews_count,
+          is_active,
+          created_at,
+          updated_at,
+          block_id,
+          total_floors,
+          units_config,
+          amenities,
+          minimum_initial_months,
+          property_blocks (
+            id,
+            name,
+            location,
+            total_floors,
+            total_units
+          ),
+          property_images (
+            id,
+            property_id,
+            image_url,
+            area,
+            display_order,
+            is_primary
+          )
+        `)
+        .eq('is_active', true)
+        .or('is_occupied.is.null,is_occupied.eq.false')
+        .order('created_at', { ascending: false })
+    )
     
     if (error) {
       const errorMessage = typeof error === 'object' && error !== null ? JSON.stringify(error) : String(error)
@@ -377,51 +423,53 @@ export async function getFeaturedProperties(limit: number = 6): Promise<Property
     const supabase = getSupabaseAdmin()
     
     // Try to fetch featured properties (exclude occupied properties)
-    const { data, error } = await supabase
-      .from('properties')
-      .select(`
-        id,
-        title,
-        location,
-        price_ugx,
-        image_url,
-        category,
-        bedrooms,
-        bathrooms,
-        description,
-        video_url,
-        rating,
-        reviews_count,
-        is_active,
-        is_featured,
-        created_at,
-        updated_at,
-        block_id,
-        total_floors,
-        units_config,
-        amenities,
-        minimum_initial_months,
-        property_blocks (
+    const { data, error } = await retryQuery(() =>
+      supabase
+        .from('properties')
+        .select(`
           id,
-          name,
+          title,
           location,
-          total_floors,
-          total_units
-        ),
-        property_images (
-          id,
-          property_id,
+          price_ugx,
           image_url,
-          area,
-          display_order,
-          is_primary
-        )
-      `)
-      .eq('is_active', true)
-      .eq('is_featured', true)
-      .or('is_occupied.is.null,is_occupied.eq.false')
-      .order('created_at', { ascending: false })
-      .limit(limit)
+          category,
+          bedrooms,
+          bathrooms,
+          description,
+          video_url,
+          rating,
+          reviews_count,
+          is_active,
+          is_featured,
+          created_at,
+          updated_at,
+          block_id,
+          total_floors,
+          units_config,
+          amenities,
+          minimum_initial_months,
+          property_blocks (
+            id,
+            name,
+            location,
+            total_floors,
+            total_units
+          ),
+          property_images (
+            id,
+            property_id,
+            image_url,
+            area,
+            display_order,
+            is_primary
+          )
+        `)
+        .eq('is_active', true)
+        .eq('is_featured', true)
+        .or('is_occupied.is.null,is_occupied.eq.false')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    )
     
     if (error) {
       const errorMessage = typeof error === 'object' && error !== null ? JSON.stringify(error) : String(error)

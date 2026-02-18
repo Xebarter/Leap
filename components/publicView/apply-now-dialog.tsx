@@ -70,6 +70,18 @@ export function ApplyNowDialog({
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[700px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+        {/* Hidden title for accessibility - always present */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            {isSuccess ? "Application Submitted" : "Submit Your Application"}
+          </DialogTitle>
+          <DialogDescription>
+            {isSuccess 
+              ? "Your rental application has been successfully submitted" 
+              : "Apply for this property by completing the application form"}
+          </DialogDescription>
+        </DialogHeader>
+        
         {isSuccess ? (
           <SuccessState 
             applicationNumber={applicationNumber}
@@ -119,12 +131,6 @@ export function ApplyNowDialog({
 function SuccessState({ applicationNumber, propertyTitle }: any) {
   return (
     <>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Application Submitted</DialogTitle>
-        <DialogDescription>
-          Your rental application has been successfully submitted
-        </DialogDescription>
-      </DialogHeader>
       <div className="p-8 text-center space-y-6">
         <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
           <CheckCircle2 className="w-8 h-8 text-green-500" />

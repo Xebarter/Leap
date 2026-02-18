@@ -2,7 +2,7 @@
 // PAYMENT TYPES AND INTERFACES
 // ============================================================================
 
-export type PaymentProvider = 'airtel' | 'mtn'
+export type PaymentProvider = 'airtel' | 'mtn' | 'pesapal'
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'cancelled'
 export type PaymentMethod = 'mobile_money' | 'bank_transfer' | 'card' | 'cash'
 
@@ -118,6 +118,8 @@ export interface PaymentTransaction {
   reservation_id?: string
   tenant_id: string
   property_code: string // 10-digit unique identifier
+  property_id?: string // Direct reference to property
+  months_paid?: number // Number of months covered by payment
   amount_paid_ugx: number
   currency: string
   payment_date: Date

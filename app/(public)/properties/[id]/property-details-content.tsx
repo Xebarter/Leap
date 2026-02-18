@@ -66,6 +66,7 @@ import { ReservePropertyDialog } from '@/components/publicView/reserve-property-
 import { ApplyNowDialog } from '@/components/publicView/apply-now-dialog'
 import { UnitActionDialog } from '@/components/publicView/unit-action-dialog'
 import { MobileMoneyPaymentDialog } from '@/components/publicView/mobile-money-payment-dialog'
+import { PesapalPaymentDialog } from '@/components/publicView/pesapal-payment-dialog'
 import { toast } from '@/hooks/use-toast'
 
 interface PropertyDetailsContentProps {
@@ -1332,7 +1333,7 @@ export default function PropertyDetailsContent({ property, id }: PropertyDetails
       />
 
       {/* Payment Dialog */}
-      <MobileMoneyPaymentDialog
+      <PesapalPaymentDialog
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         amount={(property.price_ugx / 100) * (property.minimum_initial_months || 1)}

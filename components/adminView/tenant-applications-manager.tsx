@@ -120,14 +120,32 @@ export function TenantApplicationsManager({ initialApplications }: TenantApplica
   const downloadDocument = async (url: string, filename: string) => {
     try {
       const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`)
+      }
+      
       const blob = await response.blob()
+      
+      // Create a blob URL with proper MIME type
+      const blobUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = window.URL.createObjectURL(blob)
+      link.href = blobUrl
       link.download = filename
+      link.target = '_blank'
+      
+      // Trigger download
+      document.body.appendChild(link)
       link.click()
-      window.URL.revokeObjectURL(link.href)
+      
+      // Clean up
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+      
+      toast.success("Document downloaded successfully")
     } catch (error) {
-      toast.error("Failed to download document")
+      console.error("Download error:", error)
+      toast.error("Failed to download document. The file may be corrupted or inaccessible.")
     }
   }
 
