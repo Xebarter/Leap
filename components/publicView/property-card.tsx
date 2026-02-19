@@ -68,7 +68,7 @@ export function PropertyCard({ property }: { property: Property }) {
 
   return (
     <Link href={`/properties/${property.id}`} className="group block h-full">
-      <Card className="overflow-hidden transition-all duration-300 cursor-pointer h-full hover:shadow-2xl hover:-translate-y-1 border border-border/50 bg-card">
+      <Card className="overflow-hidden transition-all duration-300 cursor-pointer h-full hover:shadow-2xl hover:-translate-y-2 border-2 border-border/40 bg-card shadow-lg hover:shadow-primary/20 hover:border-primary/30">
         {/* Image Container with Overlay */}
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <Image
