@@ -4,11 +4,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Home, Building2, HelpCircle, Mail } from 'lucide-react'
 import { ProfileMenu } from './profile-menu'
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 export function PublicHeader() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -16,10 +17,10 @@ export function PublicHeader() {
   }, [])
 
   const navItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Properties', href: '/properties' },
-    { label: 'How It Works', href: '/how-it-works' },
-    { label: 'Contact', href: '/contact' },
+    { label: 'Home', href: '/', icon: Home },
+    { label: 'Properties', href: '/properties', icon: Building2 },
+    { label: 'How It Works', href: '/how-it-works', icon: HelpCircle },
+    { label: 'Contact', href: '/contact', icon: Mail },
   ]
 
   return (
@@ -67,38 +68,61 @@ export function PublicHeader() {
               </div>
 
               {/* Mobile Menu Button */}
-              <button
-                className="md:hidden p-2 rounded-lg hover:bg-muted/50"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen && mounted ? (
-                  <X className="w-6 h-6" />
-                ) : (
-                  <Menu className="w-6 h-6" />
-                )}
-              </button>
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition-colors" aria-label="Toggle navigation menu">
+                  {mounted && open ? (
+                    <X className="h-6 w-6" />
+                  ) : (
+                    <Menu className="h-6 w-6" />
+                  )}
+                  <span className="sr-only">Toggle menu</span>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 sm:w-80">
+                  <SheetHeader className="border-b border-border/50 pb-6">
+                    <SheetTitle className="flex items-center gap-3">
+                      <Image
+                        src="/logo.png"
+                        alt="Leap Logo"
+                        width={40}
+                        height={40}
+                        className="h-10 w-auto"
+                      />
+                      <span className="font-bold text-2xl tracking-tighter">Leap</span>
+                    </SheetTitle>
+                  </SheetHeader>
+
+                  {/* Mobile Navigation */}
+                  <nav className="mt-6 space-y-1">
+                    {navItems.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <Button 
+                          key={item.href} 
+                          asChild 
+                          variant="ghost" 
+                          className="w-full justify-start gap-3 h-10" 
+                          onClick={() => setOpen(false)}
+                        >
+                          <Link href={item.href}>
+                            <Icon className="w-4 h-4" />
+                            {item.label}
+                          </Link>
+                        </Button>
+                      )
+                    })}
+                    
+                    <div className="pt-4 border-t border-border/50 mt-4">
+                      <Button asChild className="w-full justify-start gap-3" onClick={() => setOpen(false)}>
+                        <Link href="/auth/sign-up">
+                          Get Started
+                        </Link>
+                      </Button>
+                    </div>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
-
-          {/* Mobile Navigation */}
-          {mounted && mobileMenuOpen && (
-            <nav className="md:hidden pb-4 space-y-2">
-              {navItems.map((item) => (
-                <Button key={item.href} asChild variant="ghost" className="w-full justify-start text-sm" onClick={() => setMobileMenuOpen(false)}>
-                  <Link href={item.href}>
-                    {item.label}
-                  </Link>
-                </Button>
-              ))}
-              <div className="pt-2 border-t border-border/50 space-y-2">
-                <Button asChild className="w-full justify-start text-sm">
-                  <Link href="/auth/sign-up">
-                    Get Started
-                  </Link>
-                </Button>
-              </div>
-            </nav>
-          )}
         </div>
       </header>
     </>
