@@ -657,14 +657,19 @@ CREATE TRIGGER trigger_update_property_primary_image
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, is_admin, role)
+  INSERT INTO public.profiles (id, full_name, email, is_admin, role, user_type)
   VALUES (
     NEW.id,
-    NEW.raw_user_meta_data->>'full_name',
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     NEW.email,
     COALESCE((NEW.raw_user_meta_data->>'is_admin')::boolean, false),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'tenant')
-  );
+    CASE 
+      WHEN COALESCE((NEW.raw_user_meta_data->>'is_admin')::boolean, false) THEN 'admin'
+      ELSE COALESCE(NEW.raw_user_meta_data->>'role', 'tenant')
+    END,
+    COALESCE(NEW.raw_user_meta_data->>'user_type', 'tenant')
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
