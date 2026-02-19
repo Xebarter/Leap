@@ -11,12 +11,12 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Calendar, CheckCircle2, Eye, EyeOff } from "lucide-react"
+import Image from "next/image"
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
-  const [isAdmin, setIsAdmin] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -51,8 +51,7 @@ export default function SignUpPage() {
           email,
           password,
           fullName,
-          isAdmin,
-          userType: isAdmin ? 'admin' : userType, // Pass the user type (tenant or landlord)
+          userType: userType, // Pass the user type (tenant or landlord)
         }),
       })
 
@@ -78,7 +77,8 @@ export default function SignUpPage() {
           return
         }
 
-        const redirectPath = isAdmin ? '/admin' : userType === 'landlord' ? '/landlord' : '/tenant'
+        // Tenants go to home page, landlords to their dashboards
+        const redirectPath = userType === 'landlord' ? '/landlord' : '/'
         router.push(redirectPath)
         router.refresh()
       } else {
@@ -101,6 +101,17 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/logo.png"
+            alt="Leap Logo"
+            width={80}
+            height={80}
+            className="h-20 w-auto"
+          />
+        </div>
+        
         {pendingVisit && (
           <div className="mb-4 bg-primary/10 border border-primary/20 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -165,12 +176,6 @@ export default function SignUpPage() {
                   </button>
                 </div>
               </div>
-              {!pendingVisit && (
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="isAdmin" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-                  <Label htmlFor="isAdmin">Register as Admin</Label>
-                </div>
-              )}
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating account..." : "Sign Up"}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import LandlordSidebar from './landlord-sidebar'
 
 export function LandlordMobileLayout({
@@ -35,12 +35,18 @@ export function LandlordMobileLayout({
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <button 
+                className="lg:hidden relative z-50 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                aria-label="Open navigation menu"
+              >
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Toggle menu</span>
-              </Button>
+              </button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation Menu</SheetTitle>
+              </SheetHeader>
               <LandlordSidebar landlordProfile={landlordProfile} onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>

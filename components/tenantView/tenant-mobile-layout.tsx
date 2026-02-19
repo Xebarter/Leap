@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { TenantSidebar } from './tenant-sidebar'
+import Image from 'next/image'
 
 interface TenantMobileLayoutProps {
   user: any
@@ -20,20 +21,32 @@ export function TenantMobileLayout({ user, children }: TenantMobileLayoutProps) 
       <header className="lg:hidden sticky top-0 z-40 border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <div className="w-4 h-4 bg-background rounded-full" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Leap Logo"
+              width={32}
+              height={32}
+              className="h-8 w-auto"
+            />
             <span className="font-bold text-xl tracking-tighter">Leap</span>
           </div>
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden relative z-50"
+                aria-label="Open navigation menu"
+              >
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Toggle menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation Menu</SheetTitle>
+              </SheetHeader>
               <TenantSidebar user={user} onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>

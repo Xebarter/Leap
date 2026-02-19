@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { Calendar, CheckCircle2 } from "lucide-react"
+import Image from "next/image"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -87,7 +88,8 @@ export default function LoginPage() {
       } else if (isLandlord) {
         router.push("/landlord")
       } else {
-        router.push("/tenant")
+        // Tenants go to home page after login
+        router.push("/")
       }
       router.refresh()
     } catch (err: any) {
@@ -107,6 +109,17 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/logo.png"
+            alt="Leap Logo"
+            width={80}
+            height={80}
+            className="h-20 w-auto"
+          />
+        </div>
+        
         {pendingVisit && (
           <div className="mb-4 bg-primary/10 border border-primary/20 rounded-lg p-4">
             <div className="flex items-start gap-3">

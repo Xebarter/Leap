@@ -72,7 +72,7 @@ async function handler(request: NextRequest) {
     const isAdmin = profile?.is_admin || user.user_metadata?.is_admin
     const isLandlord = profile?.role === 'landlord' || profile?.user_type === 'landlord'
     
-    let redirectPath = '/tenant'
+    let redirectPath = '/' // Tenants go to home page
     if (isAdmin) {
       redirectPath = '/admin'
     } else if (isLandlord) {

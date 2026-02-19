@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Settings, LogOut, Home, FileText, Calendar, CreditCard, Wrench, Bell, MessageSquare, Search, Building2 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 
 export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: () => void }) {
   const pathname = usePathname()
@@ -13,9 +14,13 @@ export function TenantSidebar({ user, onNavigate }: { user: any; onNavigate?: ()
   return (
     <aside className="w-72 border-r border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 h-screen flex flex-col p-6 lg:p-8">
       <div className="flex items-center gap-3 px-2 mb-12">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <div className="w-4 h-4 bg-background rounded-full" />
-        </div>
+        <Image
+          src="/logo.png"
+          alt="Leap Logo"
+          width={40}
+          height={40}
+          className="h-10 w-auto"
+        />
         <span className="font-bold text-2xl tracking-tighter">Leap</span>
       </div>
 

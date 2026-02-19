@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       const isAdmin = profile?.is_admin || data.user?.user_metadata?.is_admin
       const isLandlord = profile?.user_type === 'landlord' || profile?.role === 'landlord'
       
-      let redirectPath = '/tenant' // default
+      let redirectPath = '/' // Tenants go to home page
       if (isAdmin) {
         redirectPath = '/admin'
       } else if (isLandlord) {
