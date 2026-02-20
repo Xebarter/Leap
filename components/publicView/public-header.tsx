@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Menu, X, Home, Building2, HelpCircle, Mail } from 'lucide-react'
 import { ProfileMenu } from './profile-menu'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 export function PublicHeader() {
@@ -52,7 +53,10 @@ export function PublicHeader() {
             </nav>
 
             {/* Profile Menu & Mobile Toggle */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* Theme Toggle - Always visible */}
+              <ThemeToggle />
+              
               <div className="hidden sm:flex items-center gap-2">
                 <ProfileMenu />
                 <Button asChild size="sm" className="ml-2">
@@ -111,7 +115,11 @@ export function PublicHeader() {
                       )
                     })}
                     
-                    <div className="pt-4 border-t border-border/50 mt-4">
+                    <div className="pt-4 border-t border-border/50 mt-4 space-y-2">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <span className="text-sm font-medium">Theme</span>
+                        <ThemeToggle />
+                      </div>
                       <Button asChild className="w-full justify-start gap-3" onClick={() => setOpen(false)}>
                         <Link href="/auth/sign-up">
                           Get Started

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { EnhancedLandlordDialog } from "./enhanced-landlord-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -115,10 +116,184 @@ interface LandlordFormData {
   notes: string
 }
 
+function AssignResourcesSection({ landlords, onAssigned }: { landlords: any[]; onAssigned: () => void }) {
+  const supabase = createClient()
+  const [scope, setScope] = useState<'building' | 'unit_type' | 'unit'>('building')
+  const [selectedLandlord, setSelectedLandlord] = useState<string>('')
+  const [blocks, setBlocks] = useState<any[]>([])
+  const [blockId, setBlockId] = useState<string>('')
+  const [unitTypes, setUnitTypes] = useState<string[]>([])
+  const [unitType, setUnitType] = useState<string>('')
+  const [units, setUnits] = useState<any[]>([])
+  const [unitId, setUnitId] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const fetchBlocks = async () => {
+      const { data } = await supabase.from('property_blocks').select('id,name,location').order('name')
+      setBlocks(data || [])
+    }
+    fetchBlocks()
+  }, [])
+
+  useEffect(() => {
+    const fetchUnitTypesAndUnits = async () => {
+      if (!blockId) {
+        setUnitTypes([])
+        setUnits([])
+        setUnitType('')
+        setUnitId('')
+        return
+      }
+      const { data: unitRows } = await supabase
+        .from('property_units')
+        .select('id, unit_type, unit_number')
+        .eq('block_id', blockId)
+        .order('unit_type')
+      const types = Array.from(new Set((unitRows || []).map((u: any) => u.unit_type).filter(Boolean))) as string[]
+      setUnitTypes(types)
+      setUnits(unitRows || [])
+      if (!types.includes(unitType)) setUnitType('')
+      if (!unitRows?.find(u => u.id === unitId)) setUnitId('')
+    }
+    fetchUnitTypesAndUnits()
+  }, [blockId])
+
+  const handleAssign = async (assignToNull = false) => {
+    try {
+      setLoading(true)
+      const body: any = {
+        landlordId: assignToNull ? null : (selectedLandlord || null),
+        scope,
+      }
+      if (scope === 'building') {
+        if (!blockId) return toast.error('Please select a building')
+        body.blockId = blockId
+      } else if (scope === 'unit_type') {
+        if (!blockId || !unitType) return toast.error('Please select building and unit type')
+        body.blockId = blockId
+        body.unitType = unitType
+      } else if (scope === 'unit') {
+        if (!unitId) return toast.error('Please select a unit')
+        body.unitId = unitId
+      }
+      const res = await fetch('/api/admin/landlords/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to assign')
+      toast.success('Assignment updated')
+      onAssigned()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to assign')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="space-y-1">
+          <Label>Scope</Label>
+          <Select value={scope} onValueChange={(v: any) => setScope(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select scope" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="building">Building</SelectItem>
+              <SelectItem value="unit_type">Unit Type</SelectItem>
+              <SelectItem value="unit">Single Unit</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Landlord</Label>
+          <Select value={selectedLandlord} onValueChange={(v) => setSelectedLandlord(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select landlord" />
+            </SelectTrigger>
+            <SelectContent>
+              {landlords.map((l: any) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.profiles?.full_name || l.business_name || 'Landlord'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Building</Label>
+          <Select value={blockId} onValueChange={(v) => setBlockId(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select building" />
+            </SelectTrigger>
+            <SelectContent>
+              {blocks.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name || 'Block'}{b.location ? ` • ${b.location}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {scope !== 'building' && (
+          <div className="space-y-1">
+            <Label>{scope === 'unit_type' ? 'Unit Type' : 'Unit'}</Label>
+            {scope === 'unit_type' ? (
+              <Select value={unitType} onValueChange={(v) => setUnitType(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitTypes.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select value={unitId} onValueChange={(v) => setUnitId(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.unit_number} • {u.unit_type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => handleAssign(false)} disabled={loading}>
+          Assign
+        </Button>
+        <Button variant="outline" onClick={() => handleAssign(true)} disabled={loading}>
+          Remove Assignment
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function ComprehensiveLandlordManager({ initialLandlords }: { initialLandlords: LandlordProfile[] }) {
+  // helper subcomponent declared below
+  // helper subcomponent declared below
+
+  // helper subcomponent declared below
+
   const [landlords, setLandlords] = useState<LandlordProfile[]>(initialLandlords)
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [initialActiveTab, setInitialActiveTab] = useState<string>('basic')
   const [searchQuery, setSearchQuery] = useState("")
   const [editingLandlord, setEditingLandlord] = useState<LandlordProfile | null>(null)
   const [expandedLandlordId, setExpandedLandlordId] = useState<string | null>(null)
@@ -164,11 +339,26 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
     const supabase = createClient()
 
     try {
-      // Fetch properties
+      // Fetch properties (property-level assignments)
       const { data: properties } = await supabase
         .from("properties")
-        .select("*")
+        .select("id, title, location, price_ugx, is_active, block_id")
         .eq("landlord_id", landlordId)
+
+      // Fetch units (unit-level assignments)
+      const { data: assignedUnits } = await supabase
+        .from("property_units")
+        .select(`
+          id,
+          unit_number,
+          unit_type,
+          block_id,
+          property_id,
+          property:property_id (title),
+          block:block_id (name, location)
+        `)
+        .eq("landlord_id", landlordId)
+        .order("unit_type")
 
       // Fetch payments
       const { data: payments } = await supabase
@@ -185,7 +375,7 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
 
       setLandlordDetails(prev => ({
         ...prev,
-        [landlordId]: { properties, payments, documents }
+        [landlordId]: { properties, assignedUnits, payments, documents }
       }))
     } catch (error) {
       console.error("Error fetching landlord details:", error)
@@ -291,7 +481,7 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
                 Manage property owners, verify accounts, and track commissions
               </CardDescription>
             </div>
-            <Button onClick={() => setIsOpen(true)} className="sm:w-auto">
+            <Button onClick={() => { setEditingLandlord(null); setInitialActiveTab('basic'); setIsOpen(true) }} className="sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Landlord
             </Button>
@@ -454,16 +644,30 @@ export function ComprehensiveLandlordManager({ initialLandlords }: { initialLand
         </CardContent>
       </Card>
 
-      {/* Landlord Dialog */}
-      <LandlordDialog
+      {/* Enhanced Landlord Dialog */}
+      <EnhancedLandlordDialog
         landlord={editingLandlord}
+        isOpen={isOpen}
         onClose={() => {
           setEditingLandlord(null)
           setIsOpen(false)
         }}
         onSave={refreshLandlords}
-        isOpen={isOpen}
-        setIsOpen={setIsOpen}
+        initialActiveTab={initialActiveTab}
+        onCreated={(id: string) => {
+          // After creation, refresh and reopen on Assignments tab
+          (async () => {
+            await refreshLandlords()
+            const justCreated = (await createClient())
+              .from('landlord_profiles')
+              .select('id, user_id')
+              .eq('id', id)
+              .maybeSingle()
+            setEditingLandlord(landlords.find(l => l.id === id) || null)
+            setInitialActiveTab('assignments')
+            setIsOpen(true)
+          })()
+        }}
       />
 
       {/* Landlord Details Dialog */}
@@ -998,6 +1202,7 @@ function LandlordDetailsView({ landlord, details }: { landlord: LandlordProfile;
         <TabsTrigger value="properties">Properties ({details?.properties?.length || 0})</TabsTrigger>
         <TabsTrigger value="payments">Payments ({details?.payments?.length || 0})</TabsTrigger>
         <TabsTrigger value="documents">Documents ({details?.documents?.length || 0})</TabsTrigger>
+        <TabsTrigger value="assignments">Assignments ({(details?.properties?.length || 0) + (details?.assignedUnits?.length || 0)})</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4">
@@ -1086,12 +1291,12 @@ function LandlordDetailsView({ landlord, details }: { landlord: LandlordProfile;
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Properties:</span>
-                <span className="font-semibold">{landlord.total_properties || 0}</span>
+                <span className="text-muted-foreground">Total Properties (assigned):</span>
+                <span className="font-semibold">{(details?.properties?.length || 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Units:</span>
-                <span className="font-semibold">{landlord.total_units || 0}</span>
+                <span className="text-muted-foreground">Assigned Units:</span>
+                <span className="font-semibold">{details?.assignedUnits?.length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Occupied Units:</span>
@@ -1126,7 +1331,7 @@ function LandlordDetailsView({ landlord, details }: { landlord: LandlordProfile;
 
       <TabsContent value="properties">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-6">
             {details?.properties && details.properties.length > 0 ? (
               <div className="space-y-4">
                 {details.properties.map((property: any) => (
@@ -1259,428 +1464,4 @@ function VerificationBadge({ status }: { status: string }) {
   )
 }
 
-// Landlord Dialog for Create/Edit
-function LandlordDialog({ 
-  landlord, 
-  onClose, 
-  onSave,
-  isOpen,
-  setIsOpen
-}: { 
-  landlord: LandlordProfile | null
-  onClose: () => void
-  onSave: () => void
-  isOpen: boolean
-  setIsOpen: (open: boolean) => void
-}) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState<any>({
-    // Auth fields (only for new landlords)
-    email: landlord?.email || "",
-    password: "",
-    full_name: landlord?.full_name || "",
-    
-    // Profile fields
-    phone: landlord?.phone || "",
-    national_id: landlord?.national_id || "",
-    address: landlord?.address || "",
-    city: landlord?.city || "",
-    country: landlord?.country || "Uganda",
-    
-    // Banking fields
-    bank_name: landlord?.bank_name || "",
-    bank_account_number: landlord?.bank_account_number || "",
-    bank_account_name: landlord?.bank_account_name || "",
-    mobile_money_number: landlord?.mobile_money_number || "",
-    mobile_money_provider: landlord?.mobile_money_provider || "MTN",
-    
-    // Business fields
-    tax_id: landlord?.tax_id || "",
-    business_registration_number: landlord?.business_registration_number || "",
-    
-    // Settings
-    commission_rate: landlord?.commission_rate || 10,
-    payment_terms: landlord?.payment_terms || "monthly",
-    status: landlord?.status || "active",
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      if (landlord) {
-        // Update existing landlord
-        const supabase = createClient()
-        const { error } = await supabase
-          .from("landlord_profiles")
-          .update({
-            phone: formData.phone,
-            national_id: formData.national_id,
-            address: formData.address,
-            city: formData.city,
-            country: formData.country,
-            bank_name: formData.bank_name,
-            bank_account_number: formData.bank_account_number,
-            bank_account_name: formData.bank_account_name,
-            mobile_money_number: formData.mobile_money_number,
-            mobile_money_provider: formData.mobile_money_provider,
-            tax_id: formData.tax_id,
-            business_registration_number: formData.business_registration_number,
-            commission_rate: formData.commission_rate,
-            payment_terms: formData.payment_terms,
-            status: formData.status,
-          })
-          .eq("id", landlord.id)
-
-        if (error) {
-          console.error("Error updating landlord:", error)
-          throw new Error(error.message || "Failed to update landlord")
-        }
-        toast.success("Landlord updated successfully")
-      } else {
-        // Create new landlord via API
-        // Validate required fields
-        if (!formData.email || !formData.password || !formData.full_name) {
-          toast.error("Email, password, and full name are required")
-          setIsLoading(false)
-          return
-        }
-
-        if (formData.password.length < 6) {
-          toast.error("Password must be at least 6 characters")
-          setIsLoading(false)
-          return
-        }
-
-        const response = await fetch("/api/admin/landlords/create", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to create landlord")
-        }
-
-        toast.success("Landlord account created successfully! They can now sign in.")
-      }
-
-      onSave()
-      onClose()
-    } catch (error: any) {
-      console.error("Error saving landlord:", error)
-      toast.error(error.message || "Failed to save landlord")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open)
-      if (!open) onClose()
-    }}>
-      <DialogTrigger asChild>
-        <Button onClick={() => setIsOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Landlord
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{landlord ? "Edit Landlord" : "Add New Landlord"}</DialogTitle>
-          <DialogDescription>
-            {landlord ? "Update landlord information" : "Create a new landlord profile"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="business">Business</TabsTrigger>
-              <TabsTrigger value="banking">Banking</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-
-            {/* Basic Information Tab */}
-            <TabsContent value="basic" className="space-y-4 mt-4">
-              {!landlord && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-red-600">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="landlord@example.com"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      This will be used for login
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-red-600">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Min. 6 characters"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Must be at least 6 characters
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="full_name" className="text-red-600">Full Name *</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="John Doe"
-                  required
-                  disabled={!!landlord}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+256700000000"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="national_id">National ID</Label>
-                  <Input
-                    id="national_id"
-                    value={formData.national_id}
-                    onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
-                    placeholder="CM12345678"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Street address"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="Kampala"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    placeholder="Uganda"
-                  />
-                </div>
-              </div>
-
-            </TabsContent>
-
-            {/* Business Information Tab */}
-            <TabsContent value="business" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tax_id">Tax ID</Label>
-                  <Input
-                    id="tax_id"
-                    value={formData.tax_id}
-                    onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
-                    placeholder="TIN123456789"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="business_registration_number">Business Registration Number</Label>
-                  <Input
-                    id="business_registration_number"
-                    value={formData.business_registration_number}
-                    onChange={(e) => setFormData({ ...formData, business_registration_number: e.target.value })}
-                    placeholder="BRN123456"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Account Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </TabsContent>
-
-            {/* Banking Information Tab */}
-            <TabsContent value="banking" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="bank_name">Bank Name</Label>
-                <Input
-                  id="bank_name"
-                  value={formData.bank_name}
-                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  placeholder="Stanbic Bank"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bank_account_number">Bank Account Number</Label>
-                <Input
-                  id="bank_account_number"
-                  value={formData.bank_account_number}
-                  onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
-                  placeholder="1234567890"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bank_account_name">Bank Account Name</Label>
-                <Input
-                  id="bank_account_name"
-                  value={formData.bank_account_name}
-                  onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })}
-                  placeholder="John Doe"
-                />
-              </div>
-
-              <div className="border-t pt-4 mt-4">
-                <h4 className="font-medium mb-4">Mobile Money</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mobile_money_provider">Provider</Label>
-                    <Select
-                      value={formData.mobile_money_provider}
-                      onValueChange={(value) => setFormData({ ...formData, mobile_money_provider: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MTN">MTN</SelectItem>
-                        <SelectItem value="Airtel">Airtel</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="mobile_money_number">Mobile Money Number</Label>
-                    <Input
-                      id="mobile_money_number"
-                      value={formData.mobile_money_number}
-                      onChange={(e) => setFormData({ ...formData, mobile_money_number: e.target.value })}
-                      placeholder="+256700000000"
-                    />
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="commission_rate">Commission Rate (%)</Label>
-                <Input
-                  id="commission_rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={formData.commission_rate || ""}
-                  onChange={(e) => {
-                    const value = e.target.value === "" ? 0 : parseFloat(e.target.value)
-                    setFormData({ ...formData, commission_rate: isNaN(value) ? 0 : value })
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Platform commission on rental income (e.g., 10 for 10%)
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment_terms">Payment Terms</Label>
-                <Select
-                  value={formData.payment_terms}
-                  onValueChange={(value) => setFormData({ ...formData, payment_terms: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="annually">Annually</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  How often commission payments are processed
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  {landlord ? "Update" : "Create"} Landlord
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// Legacy LandlordDialog removed - now using enhanced-landlord-dialog.tsx

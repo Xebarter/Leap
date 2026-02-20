@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
+import Image from "next/image"
 
 interface LandlordHeaderProps {
   user: any
@@ -31,9 +32,15 @@ export default function LandlordHeader({ user, landlordProfile, displayName }: L
   return (
     <header className="hidden lg:block border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex items-center justify-between">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold truncate">Welcome back, {displayName}!</h2>
-          <p className="text-sm text-muted-foreground">Manage your properties, tenants, payments, and issues</p>
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/landlord" className="hidden md:flex items-center gap-2 flex-shrink-0">
+            <Image src="/logo.png" alt="Leap Logo" width={40} height={40} className="h-10 w-auto" />
+            <span className="font-bold text-2xl tracking-tighter">Leap</span>
+          </Link>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold truncate">Welcome back, {displayName}!</h2>
+            <p className="text-sm text-muted-foreground">Manage your properties, tenants, payments, and issues</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">

@@ -56,6 +56,17 @@ export async function POST(request: Request) {
     // Create user account in Supabase Auth with service role
     // Use admin client with service role key for admin operations
     const supabaseAdmin = createAdminClient()
+    
+    // Check if email already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+    const emailExists = existingUser?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase())
+    
+    if (emailExists) {
+      return NextResponse.json(
+        { error: "A user with this email already exists. Please use a different email address." },
+        { status: 409 }
+      )
+    }
 
     const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -136,6 +147,15 @@ export async function POST(request: Request) {
       console.error("Error creating landlord profile:", profileError)
       // Rollback: Delete the user account if profile creation fails
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      
+      // Check if it's a duplicate user_id error
+      if (profileError.message?.includes("duplicate key") && profileError.message?.includes("user_id")) {
+        return NextResponse.json(
+          { error: "This user already has a landlord profile. Cannot create duplicate landlord accounts." },
+          { status: 409 }
+        )
+      }
+      
       return NextResponse.json(
         { error: profileError.message || "Failed to create landlord profile" },
         { status: 400 }

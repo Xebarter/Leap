@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Menu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import { Menu, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import LandlordSidebar from './landlord-sidebar'
 
@@ -18,32 +18,34 @@ export function LandlordMobileLayout({
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
+ const [mounted, setMounted] = useState(false)
 
-  const initial = getInitial(displayName)
+ useEffect(() => {
+   setMounted(true)
+ }, [])
 
-  return (
+ const initial = getInitial(displayName)
+
+ return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
       <header className="lg:hidden sticky top-0 z-40 border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <div className="w-4 h-4 bg-background rounded-full" />
-            </div>
+            <Image src="/logo.png" alt="Leap Logo" width={32} height={32} className="h-8 w-auto" />
             <span className="font-bold text-xl tracking-tighter">Leap</span>
           </div>
 
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <button 
-                className="lg:hidden relative z-50 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                aria-label="Open navigation menu"
-              >
+            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition-colors" aria-label="Toggle navigation menu">
+              {mounted && open ? (
+                <X className="h-6 w-6" />
+              ) : (
                 <Menu className="h-6 w-6" />
-                <span className="sr-only">Toggle menu</span>
-              </button>
+              )}
+              <span className="sr-only">Toggle menu</span>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
+            <SheetContent side="left" className="p-0 w-72 sm:w-80">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation Menu</SheetTitle>
               </SheetHeader>

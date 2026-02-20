@@ -4,24 +4,32 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.15 0.01 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.15 0.01 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.25 160); /* Success/Leap Green */
-  --primary-foreground: oklch(0.12 0 0);
-  --secondary: oklch(0.25 0.01 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.2 0.01 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.25 0.01 0);
-  --accent-foreground: oklch(0.98 0 0);
-  --border: oklch(0.22 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.65 0.25 160);
+  /* Light Mode - Professional & Clean */
+  --background: oklch(0.99 0 0); /* Crisp white */
+  --foreground: oklch(0.15 0 0); /* Deep charcoal for text */
+  --card: oklch(1 0 0); /* Pure white cards */
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.55 0.22 160); /* Leap Green - slightly deeper for light mode */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.005 240); /* Soft blue-grey */
+  --secondary-foreground: oklch(0.15 0 0);
+  --muted: oklch(0.97 0.005 240); /* Very light grey-blue */
+  --muted-foreground: oklch(0.45 0.01 240); /* Medium grey for muted text */
+  --accent: oklch(0.95 0.01 240); /* Subtle accent background */
+  --accent-foreground: oklch(0.15 0 0);
+  --destructive: oklch(0.55 0.22 25); /* Warm red */
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.90 0.005 240); /* Soft border */
+  --input: oklch(0.90 0.005 240);
+  --ring: oklch(0.55 0.22 160); /* Focus ring matches primary */
   --radius: 0.75rem;
+  --chart-1: oklch(0.55 0.22 240);
+  --chart-2: oklch(0.60 0.20 160);
+  --chart-3: oklch(0.65 0.18 60);
+  --chart-4: oklch(0.58 0.24 300);
+  --chart-5: oklch(0.62 0.22 20);
 }
 
 .dark {
